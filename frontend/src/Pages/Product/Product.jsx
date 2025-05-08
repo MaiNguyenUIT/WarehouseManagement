@@ -1,18 +1,22 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import './Product.css'
-import { Alert, alpha, Box, Button, Container, Fade, FormControl, IconButton, InputAdornment, InputBase, InputLabel, MenuItem, Modal, Select, Snackbar, Stack, styled, TextField, Typography } from "@mui/material";
+import { Alert, alpha, Box, Button, Container, Fade, FormControl, InputAdornment, InputBase, InputLabel, MenuItem, Modal, Select, Snackbar, Stack, styled, TextField, Typography } from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import MyTable from "../../Component/MyTable";
 import ApiService from "../../Service/ApiService";
+import ProductService from "../../DesignPatterns/Adapter/services/ProductService";
 import dayjs from 'dayjs';
 import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { useNavigate } from "react-router-dom";
-import { Close } from "@mui/icons-material";
-import axios from "axios";
-import crypto from 'crypto-js';
+import FilterStrategyContext from "../../DesignPatterns/Strategy/FilterStrategyContext";
+import CategoryFilterStrategy from "../../DesignPatterns/Strategy/CategoryFilterStrategy";
+import SupplierFilterStrategy from "../../DesignPatterns/Strategy/SupplierFilterStrategy";
+import AddProductCommand from "../../DesignPatterns/Command/AddProductCommand";
+import UpdateProductCommand from "../../DesignPatterns/Command/UpdateProductCommand";
+import DeleteProductCommand from "../../DesignPatterns/Command/DeleteProductCommand";
 
 const StyledInputBase = styled(InputBase)(({ theme }) => ({
     color: 'black',
@@ -64,23 +68,6 @@ const productStatus = [
     "OUT_STOCK"
 ]
 
-// function createData(productName, categoryId, supplierId, inventory_quantity, price, production_date, expiration_date) {
-//   return {productName, categoryId, supplierId, inventory_quantity, price, production_date, expiration_date};
-// }
-
-// const rows = [
-//     createData('P1', 'Máy Khoan', 'Tools', 'Bosch', 10, 1000000, new Date(2024, 11, 23), new Date(2026, 0, 1)),
-//     createData('P2', 'Galaxy S24 Ultra', 'Electronics', 'Samsung', 25, 24590000, new Date(2024, 10, 15), new Date(2025, 5, 30)),
-//     createData('P3', 'Laptop ThinkPad X1', 'Electronics', 'Lenovo', 15, 35000000, new Date(2024, 8, 10), new Date(2025, 8, 10)),
-//     createData('P4', 'Bàn phím cơ', 'Accessories', 'Logitech', 50, 1500000, new Date(2024, 6, 1), new Date(2025, 6, 1)),
-//     createData('P5', 'Chuột không dây', 'Accessories', 'Razer', 40, 1200000, new Date(2024, 5, 15), new Date(2025, 5, 15)),
-//     createData('P6', 'Tivi OLED 4K', 'Electronics', 'LG', 8, 50000000, new Date(2024, 3, 20), new Date(2026, 3, 20)),
-//     createData('P7', 'Máy lọc nước RO', 'Home Appliances', 'Kangaroo', 20, 5500000, new Date(2024, 4, 10), new Date(2025, 4, 10)),
-//     createData('P8', 'Điều hòa 2 chiều', 'Home Appliances', 'Daikin', 30, 12000000, new Date(2024, 2, 25), new Date(2025, 2, 25)),
-//     createData('P9', 'Bộ nồi inox 5 món', 'Kitchenware', 'Sunhouse', 60, 2500000, new Date(2024, 7, 14), new Date(2026, 7, 14)),
-//     createData('P10', 'Đèn LED thông minh', 'Electronics', 'Philips', 70, 900000, new Date(2024, 9, 5), new Date(2025, 9, 5)),
-// ];
-
 const style = {
     position: 'absolute',
     top: '50%',
@@ -109,27 +96,29 @@ const Product = () => {
     const [openSnackbar, setOpenSnackbar] = useState(false);  // Control Snackbar visibility
     const [snackbarMessage, setSnackbarMessage] = useState(""); // Snackbar message content
     const [snackbarSeverity, setSnackbarSeverity] = useState("success"); // Severity type (success, error, etc.)
+    const [filterStrategy, setFilterStrategy] = useState(null);
 
     useEffect(() => {
         fetchRows();
     }, []);
-
-    // useEffect(() => {
-    //     console.log('change filter ' + filter);
-    // },[filter]);
-
-    // useEffect(() => {
-    //     console.log('change sub filter ' + subfilter);
-    // },[subfilter]);
 
     const handleFilterChange = async (e) => {
         const value = e.target.value;
         setFilter(value);
         setSubFilter("");
         setSubFilterVisible(value !== '');
-        setListCategory(await ApiService.getAllCategorys());
+        setListCategory(await ApiService.getAllCategories());
         setListSupplier(await ApiService.getAllSupplier());
-    }
+
+        // Set the appropriate filter strategy
+        if (value === "Loại") {
+            setFilterStrategy(new CategoryFilterStrategy());
+        } else if (value === "Nhà cung cấp") {
+            setFilterStrategy(new SupplierFilterStrategy());
+        } else {
+            setFilterStrategy(null);
+        }
+    };
 
     const handleSubFilterChange = ({target}) => {
         const value = target.value;
@@ -152,52 +141,22 @@ const Product = () => {
     }
 
     const handleAddProduct = async () => {
-        if (refInput.current['productName'] !== undefined 
-            && refInput.current['categoryId'] !== undefined 
-            && refInput.current['supplierId'] !== undefined
-            && refInput.current['price'] !== undefined
-            && refInput.current['production_date'] !== undefined
-            && images !== null) {
-            await uploadImage();
-            const respond = await ApiService.addProduct(refInput.current);
-            if (respond.status === 201) {
-                setOpen(false);
-                setSnackbarMessage("Thêm đơn xuất hàng thành công!");
-                setSnackbarSeverity("success");
-                setOpenSnackbar(true);
-            } else {
-                setSnackbarMessage("Lỗi khi thêm đơn xuất hàng. Vui lòng thử lại.");
-                setSnackbarSeverity("error");
-                setOpenSnackbar(true);
-            }
-        } else {
-            setSnackbarMessage("Lỗi khi thêm đơn xuất hàng. Vui lòng thử lại.");
-            setSnackbarSeverity("error");
-            setOpenSnackbar(true);
-        }
-    }
+        const command = new AddProductCommand(refInput.current, images, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar, setOpen);
+        await command.execute();
+        fetchRows();
+    };
 
     const handleUpdateProduct = async () => {
-        await uploadImage();
-        console.log(refInput.current);
-        const respond = await ApiService.updateProduct(selectedRow.id, refInput.current);
-        console.log(respond.data);
-        if (respond.status === 200) {
-            setOpenEdit(false);
-            setSnackbarMessage("Cập nhật đơn xuất hàng thành công!");
-            setSnackbarSeverity("success");
-            setOpenSnackbar(true);
-        } else {
-            setSnackbarMessage("Lỗi khi cập nhật đơn xuất hàng. Vui lòng thử lại.");
-            setSnackbarSeverity("error");
-            setOpenSnackbar(true);
-        }
-    }
+        const command = new UpdateProductCommand(selectedRow.id, refInput.current, images, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar, setOpenEdit);
+        await command.execute();
+        fetchRows();
+    };
 
     const handleDeleteButton = async (id) => {
-        await ApiService.deleteProduct(id);
+        const command = new DeleteProductCommand(id, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar);
+        await command.execute();
         fetchRows();
-    }
+    };
 
     const handleEditButton = async (row) => {
         setSelectedRow(row);
@@ -205,7 +164,7 @@ const Product = () => {
         setImages(null);
         setImageUrls(null);
 
-        setListCategory(await ApiService.getAllCategorys());
+        setListCategory(await ApiService.getAllCategories());
         setListSupplier(await ApiService.getAllSupplier());
 
         const updateStates = async () => {
@@ -232,45 +191,21 @@ const Product = () => {
         setOpen(true);
         setImages();
         refInput.current = {};
-        setListCategory(await ApiService.getAllCategorys());
+        setListCategory(await ApiService.getAllCategories());
         setListSupplier(await ApiService.getAllSupplier());
     }
     const handleClose = () => {
         setOpen(false);
         fetchRows();
     }
- 
+
     const fetchRows = async () => {
-      try {
-        const response = await ApiService.getAllProduct();
-
-        // const updatedRows = await Promise.all(
-        //     response.map(async (row) => {
-        //         try {
-        //             const supplier = await ApiService.getSupplierById(row.supplierId);
-        //             const category = await ApiService.getCategoryById(row.categoryId);
-        //             return { 
-        //               ...row, 
-        //               supplierName: supplier?.nameSupplier || '',
-        //               categoryName: category?.categoryName || '',
-        //             };
-        //         } catch (error) {
-        //             console.error('Lỗi khi lấy dữ liệu:', error);
-        //             return { 
-        //               ...row, 
-        //               supplierName: '',
-        //               categoryName: '',
-        //             };
-        //         }
-        //     })
-        // );
-
-        // setRows(updatedRows);
-        console.log(response);
-        setRows(response);
-      } catch (error) {
-        console.error("Lỗi khi tải thông tin các Product", error.message);
-      }
+        try {
+            const response = await ProductService.getAllProducts();
+            setRows(response);
+        } catch (error) {
+            console.error("Lỗi khi tải thông tin các Product", error.message);
+        }
     };
 
     //image upload
@@ -278,67 +213,15 @@ const Product = () => {
     const [imageUrls, setImageUrls] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
 
-    // useEffect(() => {
-    //     console.log('Updated images:', images);
-    //   }, [images]);
-
     const handleImageChange = (e) => {
         setImages(e.target.files[0]);
         setPreviewUrl(URL.createObjectURL(e.target.files[0]));
     };
 
-    const uploadImage = async () => {
-        if (!images) {
-            setImageUrls(null);
-            return;
-        }
-        
-        const publicId = `${refInput.current['productName']}-${refInput.current['supplierId']}`;
-        const timestamp = Math.round(new Date().getTime() / 1000);
-        const signature = crypto.SHA1(`public_id=${publicId}&timestamp=${timestamp}Mn2a9bePfKtrHY9Z3q0T_48-YuM`).toString();
-
-        try {
-            await axios.post(
-                'https://api.cloudinary.com/v1_1/dsygvdfd2/image/destroy',
-                {
-                    public_id: publicId,
-                    signature: signature,
-                    api_key: '291288338413912',
-                    api_secret: 'Mn2a9bePfKtrHY9Z3q0T_48-YuM',
-                    timestamp: timestamp
-                }
-            );
-    
-            console.log(`Đã xóa ảnh cũ với public_id: ${publicId}`);
-        } catch (error) {
-            console.warn('Không tìm thấy ảnh cũ hoặc lỗi khi xóa:', error.response?.data || error.message);
-        }
-    
-        const formData = new FormData();
-        formData.append('file', images);
-        formData.append('upload_preset', 'phatwarehouse');
-        formData.append('public_id', publicId);
-    
-        try {
-            const response = await axios.post(
-                'https://api.cloudinary.com/v1_1/dsygvdfd2/image/upload',
-                formData
-            );
-            const uploadedUrl = response.data.secure_url;
-    
-            setImageUrls(uploadedUrl);
-            refInput.current['image'] = uploadedUrl;
-            console.log('Uploaded Image URL:', uploadedUrl);
-        } catch (error) {
-            console.error('Lỗi khi tải hình ảnh:', error);
-        }
-    };
-
-    const filteredRows = rows.filter(row => 
-        row.productName.toLowerCase().includes(search.toLowerCase()) &&
-        ((filter != "" && subfilter != "") ? (filter === 'Loại' ? row.categoryName === subfilter : row.supplierName === subfilter): true)
-    );
-    
+    const filteredRows = new FilterStrategyContext(filterStrategy).filter(rows, {
+        search,
+        subfilter,
+    });
 
     return(
         <Container maxWidth="xl" className="Product" sx={{ width: "100%", height: "auto", display: "flex", flexDirection: "column"}}>
