@@ -93,7 +93,11 @@
             <scope>runtime</scope>
         </dependency>
         
-
+   <!-- Them cho decorator-->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-aop</artifactId>
+</dependency>
 
     </dependencies>
 

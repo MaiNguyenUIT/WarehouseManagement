@@ -4,15 +4,12 @@ import { Alert, alpha, Box, Button, Container, Fade, FormControl, IconButton, In
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import MyTable from "../../Component/MyTable";
-import ApiService from "../../Service/ApiService";
+import ProductManagerFacade from "../../Service/ProductManagerFacade"; // Adjust the import path
 import dayjs from 'dayjs';
 import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { useNavigate } from "react-router-dom";
-import { Close } from "@mui/icons-material";
-import axios from "axios";
-import crypto from 'crypto-js';
 
 const StyledInputBase = styled(InputBase)(({ theme }) => ({
     color: 'black',
@@ -20,7 +17,6 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
     backgroundColor: 'white',
     '& .MuiInputBase-input': {
       padding: '10px',
-      // vertical padding + font size from searchIcon
       transition: theme.transitions.create('width'),
       [theme.breakpoints.up('sm')]: {
         width: '12vw',
@@ -62,24 +58,7 @@ const columns = [
 const productStatus = [
     "IN_STOCK",
     "OUT_STOCK"
-]
-
-// function createData(productName, categoryId, supplierId, inventory_quantity, price, production_date, expiration_date) {
-//   return {productName, categoryId, supplierId, inventory_quantity, price, production_date, expiration_date};
-// }
-
-// const rows = [
-//     createData('P1', 'Máy Khoan', 'Tools', 'Bosch', 10, 1000000, new Date(2024, 11, 23), new Date(2026, 0, 1)),
-//     createData('P2', 'Galaxy S24 Ultra', 'Electronics', 'Samsung', 25, 24590000, new Date(2024, 10, 15), new Date(2025, 5, 30)),
-//     createData('P3', 'Laptop ThinkPad X1', 'Electronics', 'Lenovo', 15, 35000000, new Date(2024, 8, 10), new Date(2025, 8, 10)),
-//     createData('P4', 'Bàn phím cơ', 'Accessories', 'Logitech', 50, 1500000, new Date(2024, 6, 1), new Date(2025, 6, 1)),
-//     createData('P5', 'Chuột không dây', 'Accessories', 'Razer', 40, 1200000, new Date(2024, 5, 15), new Date(2025, 5, 15)),
-//     createData('P6', 'Tivi OLED 4K', 'Electronics', 'LG', 8, 50000000, new Date(2024, 3, 20), new Date(2026, 3, 20)),
-//     createData('P7', 'Máy lọc nước RO', 'Home Appliances', 'Kangaroo', 20, 5500000, new Date(2024, 4, 10), new Date(2025, 4, 10)),
-//     createData('P8', 'Điều hòa 2 chiều', 'Home Appliances', 'Daikin', 30, 12000000, new Date(2024, 2, 25), new Date(2025, 2, 25)),
-//     createData('P9', 'Bộ nồi inox 5 món', 'Kitchenware', 'Sunhouse', 60, 2500000, new Date(2024, 7, 14), new Date(2026, 7, 14)),
-//     createData('P10', 'Đèn LED thông minh', 'Electronics', 'Philips', 70, 900000, new Date(2024, 9, 5), new Date(2025, 9, 5)),
-// ];
+];
 
 const style = {
     position: 'absolute',
@@ -106,243 +85,184 @@ const Product = () => {
     const [selectedRow, setSelectedRow] = useState(null);
     const nav = useNavigate();
 
-    const [openSnackbar, setOpenSnackbar] = useState(false);  // Control Snackbar visibility
-    const [snackbarMessage, setSnackbarMessage] = useState(""); // Snackbar message content
-    const [snackbarSeverity, setSnackbarSeverity] = useState("success"); // Severity type (success, error, etc.)
+    const [openSnackbar, setOpenSnackbar] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState("");
+    const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+
+    const [images, setImages] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
 
     useEffect(() => {
         fetchRows();
     }, []);
-
-    // useEffect(() => {
-    //     console.log('change filter ' + filter);
-    // },[filter]);
-
-    // useEffect(() => {
-    //     console.log('change sub filter ' + subfilter);
-    // },[subfilter]);
 
     const handleFilterChange = async (e) => {
         const value = e.target.value;
         setFilter(value);
         setSubFilter("");
         setSubFilterVisible(value !== '');
-        setListCategory(await ApiService.getAllCategorys());
-        setListSupplier(await ApiService.getAllSupplier());
-    }
+        try {
+            const categories = await ProductManagerFacade.fetchCategories();
+            const suppliers = await ProductManagerFacade.fetchSuppliers();
+            setListCategory(categories);
+            setListSupplier(suppliers);
+        } catch (error) {
+            console.error("Error fetching filters:", error.message);
+            setSnackbarMessage("Failed to load filters");
+            setSnackbarSeverity("error");
+            setOpenSnackbar(true);
+        }
+    };
 
     const handleSubFilterChange = ({target}) => {
         const value = target.value;
         setSubFilter(value);
-    }
-    
+    };
+
     const handleChange = ({target}) => {
         refInput.current[target.name] = target.value;
-        console.log(refInput);
-    }
+    };
 
     const handleChangeProductionDate = (value) => {
         refInput.current['production_date'] = `${value.$y}-${(value.$M + 1).toString().padStart(2, '0')}-${value.$D.toString().padStart(2, '0')}`;
-        console.log(refInput);
-    }
+    };
 
     const handleChangeExpirationDate = (value) => {
         refInput.current['expiration_date'] = `${value.$y}-${(value.$M + 1).toString().padStart(2, '0')}-${value.$D.toString().padStart(2, '0')}`;
-        console.log(refInput);
-    }
+    };
 
     const handleAddProduct = async () => {
-        if (refInput.current['productName'] !== undefined 
-            && refInput.current['categoryId'] !== undefined 
-            && refInput.current['supplierId'] !== undefined
-            && refInput.current['price'] !== undefined
-            && refInput.current['production_date'] !== undefined
-            && images !== null) {
-            await uploadImage();
-            const respond = await ApiService.addProduct(refInput.current);
-            if (respond.status === 201) {
-                setOpen(false);
-                setSnackbarMessage("Thêm đơn xuất hàng thành công!");
-                setSnackbarSeverity("success");
-                setOpenSnackbar(true);
-            } else {
-                setSnackbarMessage("Lỗi khi thêm đơn xuất hàng. Vui lòng thử lại.");
+        if (refInput.current['productName'] &&
+            refInput.current['categoryId'] &&
+            refInput.current['supplierId'] &&
+            refInput.current['price']) {
+            try {
+                const response = await ProductManagerFacade.addProductWithImage(refInput.current, images);
+                if (response.status === 201) {
+                    setOpen(false);
+                    setRows(await ProductManagerFacade.fetchProducts());
+                    setSnackbarMessage("Thêm sản phẩm thành công!");
+                    setSnackbarSeverity("success");
+                    setOpenSnackbar(true);
+                }
+            } catch (error) {
+                console.error("Error adding product:", error.message);
+                setSnackbarMessage("Lỗi khi thêm sản phẩm. Vui lòng thử lại.");
                 setSnackbarSeverity("error");
                 setOpenSnackbar(true);
             }
         } else {
-            setSnackbarMessage("Lỗi khi thêm đơn xuất hàng. Vui lòng thử lại.");
+            setSnackbarMessage("Vui lòng điền đầy đủ thông tin bắt buộc.");
             setSnackbarSeverity("error");
             setOpenSnackbar(true);
         }
-    }
+    };
 
     const handleUpdateProduct = async () => {
-        await uploadImage();
-        console.log(refInput.current);
-        const respond = await ApiService.updateProduct(selectedRow.id, refInput.current);
-        console.log(respond.data);
-        if (respond.status === 200) {
-            setOpenEdit(false);
-            setSnackbarMessage("Cập nhật đơn xuất hàng thành công!");
-            setSnackbarSeverity("success");
-            setOpenSnackbar(true);
-        } else {
-            setSnackbarMessage("Lỗi khi cập nhật đơn xuất hàng. Vui lòng thử lại.");
+        try {
+            const response = await ProductManagerFacade.updateProductWithImage(selectedRow.id, refInput.current, images);
+            if (response.status === 200) {
+                setOpenEdit(false);
+                setRows(await ProductManagerFacade.fetchProducts());
+                setSnackbarMessage("Cập nhật sản phẩm thành công!");
+                setSnackbarSeverity("success");
+                setOpenSnackbar(true);
+            }
+        } catch (error) {
+            console.error("Error updating product:", error.message);
+            setSnackbarMessage("Lỗi khi cập nhật sản phẩm. Vui lòng thử lại.");
             setSnackbarSeverity("error");
             setOpenSnackbar(true);
         }
-    }
+    };
 
     const handleDeleteButton = async (id) => {
-        await ApiService.deleteProduct(id);
-        fetchRows();
-    }
+        try {
+            const { updatedProducts } = await ProductManagerFacade.deleteAndRefresh(id);
+            setRows(updatedProducts);
+            setSnackbarMessage("Xóa sản phẩm thành công!");
+            setSnackbarSeverity("success");
+            setOpenSnackbar(true);
+        } catch (error) {
+            console.error("Error deleting product:", error.message);
+            setSnackbarMessage("Lỗi khi xóa sản phẩm.");
+            setSnackbarSeverity("error");
+            setOpenSnackbar(true);
+        }
+    };
 
     const handleEditButton = async (row) => {
         setSelectedRow(row);
-        refInput.current = row;
+        refInput.current = { ...row };
         setImages(null);
-        setImageUrls(null);
-
-        setListCategory(await ApiService.getAllCategorys());
-        setListSupplier(await ApiService.getAllSupplier());
-
-        const updateStates = async () => {
-            if (row.image !== null) {
-                await setImageUrls(row.image);
-                await setPreviewUrl(row.image);
-            } else {
-                await setImageUrls(null);
-                await setPreviewUrl(null);
-            }
+        setPreviewUrl(row.image || null);
+        try {
+            const categories = await ProductManagerFacade.fetchCategories();
+            const suppliers = await ProductManagerFacade.fetchSuppliers();
+            setListCategory(categories);
+            setListSupplier(suppliers);
             setOpenEdit(true);
-            console.log(images);
-            console.log(imageUrls);
-        };
-    
-        updateStates();
+        } catch (error) {
+            console.error("Error loading edit modal:", error.message);
+            setSnackbarMessage("Lỗi khi tải dữ liệu chỉnh sửa.");
+            setSnackbarSeverity("error");
+            setOpenSnackbar(true);
+        }
     };
 
     const handleClickRow = (row) => {
         nav('/app/product/detail/' + row.id);
-    }
+    };
 
     const handleOpen = async () => {
         setOpen(true);
-        setImages();
+        setImages(null);
+        setPreviewUrl(null);
         refInput.current = {};
-        setListCategory(await ApiService.getAllCategorys());
-        setListSupplier(await ApiService.getAllSupplier());
-    }
+        try {
+            const categories = await ProductManagerFacade.fetchCategories();
+            const suppliers = await ProductManagerFacade.fetchSuppliers();
+            setListCategory(categories);
+            setListSupplier(suppliers);
+        } catch (error) {
+            console.error("Error opening modal:", error.message);
+            setSnackbarMessage("Lỗi khi mở modal thêm sản phẩm.");
+            setSnackbarSeverity("error");
+            setOpenSnackbar(true);
+        }
+    };
+
     const handleClose = () => {
         setOpen(false);
         fetchRows();
-    }
- 
-    const fetchRows = async () => {
-      try {
-        const response = await ApiService.getAllProduct();
-
-        // const updatedRows = await Promise.all(
-        //     response.map(async (row) => {
-        //         try {
-        //             const supplier = await ApiService.getSupplierById(row.supplierId);
-        //             const category = await ApiService.getCategoryById(row.categoryId);
-        //             return { 
-        //               ...row, 
-        //               supplierName: supplier?.nameSupplier || '',
-        //               categoryName: category?.categoryName || '',
-        //             };
-        //         } catch (error) {
-        //             console.error('Lỗi khi lấy dữ liệu:', error);
-        //             return { 
-        //               ...row, 
-        //               supplierName: '',
-        //               categoryName: '',
-        //             };
-        //         }
-        //     })
-        // );
-
-        // setRows(updatedRows);
-        console.log(response);
-        setRows(response);
-      } catch (error) {
-        console.error("Lỗi khi tải thông tin các Product", error.message);
-      }
     };
 
-    //image upload
-    const [images, setImages] = useState(null);
-    const [imageUrls, setImageUrls] = useState(null);
-    const [previewUrl, setPreviewUrl] = useState(null);
-
-    // useEffect(() => {
-    //     console.log('Updated images:', images);
-    //   }, [images]);
+    const fetchRows = async () => {
+        try {
+            const products = await ProductManagerFacade.fetchProducts();
+            setRows(products);
+        } catch (error) {
+            console.error("Error fetching products:", error.message);
+            setSnackbarMessage("Lỗi khi tải danh sách sản phẩm.");
+            setSnackbarSeverity("error");
+            setOpenSnackbar(true);
+        }
+    };
 
     const handleImageChange = (e) => {
-        setImages(e.target.files[0]);
-        setPreviewUrl(URL.createObjectURL(e.target.files[0]));
-    };
-
-    const uploadImage = async () => {
-        if (!images) {
-            setImageUrls(null);
-            return;
-        }
-        
-        const publicId = `${refInput.current['productName']}-${refInput.current['supplierId']}`;
-        const timestamp = Math.round(new Date().getTime() / 1000);
-        const signature = crypto.SHA1(`public_id=${publicId}&timestamp=${timestamp}Mn2a9bePfKtrHY9Z3q0T_48-YuM`).toString();
-
-        try {
-            await axios.post(
-                'https://api.cloudinary.com/v1_1/dsygvdfd2/image/destroy',
-                {
-                    public_id: publicId,
-                    signature: signature,
-                    api_key: '291288338413912',
-                    api_secret: 'Mn2a9bePfKtrHY9Z3q0T_48-YuM',
-                    timestamp: timestamp
-                }
-            );
-    
-            console.log(`Đã xóa ảnh cũ với public_id: ${publicId}`);
-        } catch (error) {
-            console.warn('Không tìm thấy ảnh cũ hoặc lỗi khi xóa:', error.response?.data || error.message);
-        }
-    
-        const formData = new FormData();
-        formData.append('file', images);
-        formData.append('upload_preset', 'phatwarehouse');
-        formData.append('public_id', publicId);
-    
-        try {
-            const response = await axios.post(
-                'https://api.cloudinary.com/v1_1/dsygvdfd2/image/upload',
-                formData
-            );
-            const uploadedUrl = response.data.secure_url;
-    
-            setImageUrls(uploadedUrl);
-            refInput.current['image'] = uploadedUrl;
-            console.log('Uploaded Image URL:', uploadedUrl);
-        } catch (error) {
-            console.error('Lỗi khi tải hình ảnh:', error);
-        }
+        const file = e.target.files[0];
+        setImages(file);
+        setPreviewUrl(file ? URL.createObjectURL(file) : null);
     };
 
     const filteredRows = rows.filter(row => 
         row.productName.toLowerCase().includes(search.toLowerCase()) &&
-        ((filter != "" && subfilter != "") ? (filter === 'Loại' ? row.categoryName === subfilter : row.supplierName === subfilter): true)
+        ((filter !== "" && subfilter !== "") ? (filter === 'Loại' ? row.categoryName === subfilter : row.supplierName === subfilter) : true)
     );
-    
 
-    return(
+    return (
         <Container maxWidth="xl" className="Product" sx={{ width: "100%", height: "auto", display: "flex", flexDirection: "column"}}>
-            <Stack className="product-bar" sx={{backgroundColor: "#ffffff",padding:"1rem", borderRadius:"0.5rem"}}>
+            <Stack className="product-bar" sx={{backgroundColor: "#ffffff", padding:"1rem", borderRadius:"0.5rem"}}>
                 <Stack direction={"row"} justifyContent={"space-between"} alignItems={"center"}>
                     <Typography 
                         sx={{fontWeight: 'bold', fontSize:"25px", paddingLeft:"10px", width:"auto"}} 
@@ -353,14 +273,14 @@ const Product = () => {
                         <Stack className="search-bar" direction={"row"} alignItems={"center"}>
                             <Search>
                                 <StyledInputBase sx={{padding:"0rem"}}
-                                placeholder="Tìm kiếm"
-                                startAdornment={
-                                  <InputAdornment className="input-adornment" position="start">
-                                    <SearchIcon />
-                                  </InputAdornment>
-                                }
-                                onChange={(e) => setSearch(e.target.value)}
-                                inputProps={{ 'aria-label': 'search' }}
+                                    placeholder="Tìm kiếm"
+                                    startAdornment={
+                                      <InputAdornment className="input-adornment" position="start">
+                                        <SearchIcon />
+                                      </InputAdornment>
+                                    }
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    inputProps={{ 'aria-label': 'search' }}
                                 />
                             </Search>
                         </Stack>
@@ -375,7 +295,7 @@ const Product = () => {
                                         Lọc theo
                                 </InputLabel>
                                 <Select
-                                sx={{
+                                    sx={{
                                         backgroundColor:"white", 
                                         border:"none",
                                         '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
@@ -388,11 +308,11 @@ const Product = () => {
                                     label="Lọc theo"
                                     onChange={handleFilterChange}
                                 >
-                                <MenuItem value="">
-                                    <em>Không chọn</em>
-                                </MenuItem>
-                                <MenuItem value={"Loại"}>Loại</MenuItem>
-                                <MenuItem value={"Nhà cung cấp"}>Nhà cung cấp</MenuItem>
+                                    <MenuItem value="">
+                                        <em>Không chọn</em>
+                                    </MenuItem>
+                                    <MenuItem value={"Loại"}>Loại</MenuItem>
+                                    <MenuItem value={"Nhà cung cấp"}>Nhà cung cấp</MenuItem>
                                 </Select>
                             </FormControl>
 
@@ -412,17 +332,13 @@ const Product = () => {
                                             <em>Không chọn</em>
                                         </MenuItem>
                                         {filter === 'Loại' ? (
-                                            listCategory.map((category) => {
-                                                return (
-                                                    <MenuItem value={category.categoryName}>{category.categoryName}</MenuItem>
-                                                );
-                                            })
+                                            listCategory.map((category) => (
+                                                <MenuItem key={category.id} value={category.categoryName}>{category.categoryName}</MenuItem>
+                                            ))
                                         ) : (
-                                            listSupplier.map((supplier) => {
-                                                return (
-                                                    <MenuItem value={supplier.nameSupplier}>{supplier.nameSupplier}</MenuItem>
-                                                );
-                                            })
+                                            listSupplier.map((supplier) => (
+                                                <MenuItem key={supplier.id} value={supplier.nameSupplier}>{supplier.nameSupplier}</MenuItem>
+                                            ))
                                         )}
                                     </Select>
                                 </FormControl>
@@ -432,14 +348,21 @@ const Product = () => {
                             <Button 
                                 onClick={handleOpen} 
                                 className="btn-setting" 
-                                sx={{color: "white", height:"55px", backgroundColor: "#243642"}} variant="contained">
+                                sx={{color: "white", height:"55px", backgroundColor: "#243642"}} 
+                                variant="contained">
                                 <AddIcon sx={{color: "white"}}/>
                                 Thêm sản phẩm
                             </Button>
                         </Stack>
                     </Stack>
                 </Stack>
-                <MyTable tableColumns={columns} tableRows={filteredRows} handleDeleteButton={handleDeleteButton} handleEditButton={handleEditButton} handleClickRow={handleClickRow}/>
+                <MyTable 
+                    tableColumns={columns} 
+                    tableRows={filteredRows} 
+                    handleDeleteButton={handleDeleteButton} 
+                    handleEditButton={handleEditButton} 
+                    handleClickRow={handleClickRow}
+                />
             </Stack>
             <Modal
                 aria-labelledby="transition-modal-title"
@@ -461,33 +384,29 @@ const Product = () => {
                                 <FormControl sx={{margin:"1%", width:"48%" }}>
                                     <InputLabel id="demo-simple-select-helper-label">Loại</InputLabel>
                                     <Select
-                                    labelId="demo-simple-select-helper-label"
-                                    id="demo-simple-select-helper"
-                                    name="categoryId"
-                                    label="Loại"
-                                    onChange={handleChange}
+                                        labelId="demo-simple-select-helper-label"
+                                        id="demo-simple-select-helper"
+                                        name="categoryId"
+                                        label="Loại"
+                                        onChange={handleChange}
                                     >
-                                        {listCategory.map((category) => {
-                                            return (
-                                                <MenuItem value={category.id}>{category.categoryName}</MenuItem>
-                                            );
-                                        })}
+                                        {listCategory.map((category) => (
+                                            <MenuItem key={category.id} value={category.id}>{category.categoryName}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 <FormControl sx={{margin:"1%", width:"48%" }}>
                                     <InputLabel id="demo-simple-select-helper-label">Nhà cung cấp</InputLabel>
                                     <Select
-                                    labelId="demo-simple-select-helper-label"
-                                    id="demo-simple-select-helper"
-                                    name="supplierId"
-                                    label="Nhà cung cấp"
-                                    onChange={handleChange}
+                                        labelId="demo-simple-select-helper-label"
+                                        id="demo-simple-select-helper"
+                                        name="supplierId"
+                                        label="Nhà cung cấp"
+                                        onChange={handleChange}
                                     >
-                                        {listSupplier.map((supplier) => {
-                                            return (
-                                                <MenuItem value={supplier.id}>{supplier.nameSupplier}</MenuItem>
-                                            );
-                                        })}
+                                        {listSupplier.map((supplier) => (
+                                            <MenuItem key={supplier.id} value={supplier.id}>{supplier.nameSupplier}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 <TextField sx={{margin:"1%", width:"31%" }} onChange={handleChange} name="unit" label="Đơn vị" variant="outlined" />
@@ -497,9 +416,7 @@ const Product = () => {
                                     <DesktopDatePicker 
                                         views={['year', 'month', 'day']} 
                                         sx={{margin:"1%", width:"48%" }} 
-                                        onChange={(newValue) => {
-                                            handleChangeProductionDate(newValue);
-                                        }}
+                                        onChange={handleChangeProductionDate}
                                         label="Ngày sản xuất" 
                                         format="DD/MM/YYYY"
                                     />
@@ -508,22 +425,19 @@ const Product = () => {
                                     <DesktopDatePicker 
                                         views={['year', 'month', 'day']} 
                                         sx={{margin:"1%", width:"48%" }} 
-                                        onChange={(newValue) => {
-                                            handleChangeExpirationDate(newValue);
-                                        }}
+                                        onChange={handleChangeExpirationDate}
                                         label="Ngày hết hạn" 
                                         format="DD/MM/YYYY"
                                     />
                                 </LocalizationProvider>
-                                <TextField sx={{margin:"1%", width:"100%"}} onChange={handleChange} multiline="true" name="description" label="Mô tả sản phẩm" variant="outlined" />
+                                <TextField sx={{margin:"1%", width:"100%"}} onChange={handleChange} multiline name="description" label="Mô tả sản phẩm" variant="outlined" />
                                 <input
                                     type="file"
                                     accept="image/*"
                                     onChange={handleImageChange}
                                     style={{margin: '1%', width: "100%"}}
                                 />
-                                
-                                {images !== undefined && (
+                                {previewUrl && (
                                     <Box
                                         sx={{
                                             position: 'relative',
@@ -546,12 +460,12 @@ const Product = () => {
                                         />
                                     </Box>
                                 )}
-
                             </Stack>
                             <Button 
                                 className="btn-setting"
                                 onClick={handleAddProduct}
-                                sx={{color: "white", height:"50px", backgroundColor: "#243642"}} variant="contained">
+                                sx={{color: "white", height:"50px", backgroundColor: "#243642"}} 
+                                variant="contained">
                                 Thêm sản phẩm
                             </Button>
                         </Stack>
@@ -563,9 +477,9 @@ const Product = () => {
                 aria-labelledby="transition-modal-title"
                 aria-describedby="transition-modal-description"
                 open={openEdit}
-                onClose={()=>{
-                    setOpenEdit(false)
-                    fetchRows()
+                onClose={() => {
+                    setOpenEdit(false);
+                    fetchRows();
                 }}
                 closeAfterTransition
             >
@@ -582,35 +496,31 @@ const Product = () => {
                                 <FormControl sx={{margin:"1%", width:"48%" }}>
                                     <InputLabel id="demo-simple-select-helper-label">Loại</InputLabel>
                                     <Select
-                                    labelId="demo-simple-select-helper-label"
-                                    id="demo-simple-select-helper"
-                                    name="categoryId"
-                                    defaultValue={selectedRow?.categoryId ?? ''}
-                                    label="Loại"
-                                    onChange={handleChange}
+                                        labelId="demo-simple-select-helper-label"
+                                        id="demo-simple-select-helper"
+                                        name="categoryId"
+                                        defaultValue={selectedRow?.categoryId ?? ''}
+                                        label="Loại"
+                                        onChange={handleChange}
                                     >
-                                        {listCategory.map((category) => {
-                                            return (
-                                                <MenuItem value={category.id}>{category.categoryName}</MenuItem>
-                                            );
-                                        })}
+                                        {listCategory.map((category) => (
+                                            <MenuItem key={category.id} value={category.id}>{category.categoryName}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 <FormControl sx={{margin:"1%", width:"48%" }}>
                                     <InputLabel id="demo-simple-select-helper-label">Nhà cung cấp</InputLabel>
                                     <Select
-                                    labelId="demo-simple-select-helper-label"
-                                    id="demo-simple-select-helper"
-                                    name="supplierId"
-                                    defaultValue={selectedRow?.supplierId ?? ''}
-                                    label="Nhà cung cấp"
-                                    onChange={handleChange}
+                                        labelId="demo-simple-select-helper-label"
+                                        id="demo-simple-select-helper"
+                                        name="supplierId"
+                                        defaultValue={selectedRow?.supplierId ?? ''}
+                                        label="Nhà cung cấp"
+                                        onChange={handleChange}
                                     >
-                                        {listSupplier.map((supplier) => {
-                                            return (
-                                                <MenuItem value={supplier.id}>{supplier.nameSupplier}</MenuItem>
-                                            );
-                                        })}
+                                        {listSupplier.map((supplier) => (
+                                            <MenuItem key={supplier.id} value={supplier.id}>{supplier.nameSupplier}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 <TextField sx={{margin:"1%", width:"31%" }} onChange={handleChange} defaultValue={selectedRow?.unit || ''} name="unit" label="Đơn vị" variant="outlined" />
@@ -620,10 +530,8 @@ const Product = () => {
                                     <DesktopDatePicker 
                                         views={['year', 'month', 'day']} 
                                         sx={{margin:"1%", width:"48%" }} 
-                                        onChange={(newValue) => {
-                                            handleChangeProductionDate(newValue);
-                                        }}
-                                        defaultValue={selectedRow?.production_date ? dayjs(selectedRow?.production_date) : null}
+                                        onChange={handleChangeProductionDate}
+                                        defaultValue={selectedRow?.production_date ? dayjs(selectedRow.production_date) : null}
                                         label="Ngày sản xuất" 
                                         format="DD/MM/YYYY"
                                     />
@@ -632,15 +540,13 @@ const Product = () => {
                                     <DesktopDatePicker 
                                         views={['year', 'month', 'day']} 
                                         sx={{margin:"1%", width:"48%" }}
-                                        onChange={(newValue) => {
-                                            handleChangeExpirationDate(newValue);
-                                        }}
+                                        onChange={handleChangeExpirationDate}
                                         defaultValue={selectedRow?.expiration_date ? dayjs(selectedRow.expiration_date) : null}
                                         label="Ngày hết hạn" 
                                         format="DD/MM/YYYY"
                                     />
                                 </LocalizationProvider>
-                                <TextField sx={{margin:"1%", width:"100%"}} onChange={handleChange} defaultValue={selectedRow?.description || ''} multiline="true" name="description" label="Mô tả sản phẩm" variant="outlined" />
+                                <TextField sx={{margin:"1%", width:"100%"}} onChange={handleChange} defaultValue={selectedRow?.description || ''} multiline name="description" label="Mô tả sản phẩm" variant="outlined" />
                                 <FormControl sx={{margin:"1%", width:"48%" }}>
                                     <InputLabel id="demo-simple-select-helper-label">Trạng thái</InputLabel>
                                     <Select
@@ -651,11 +557,9 @@ const Product = () => {
                                         label="Trạng thái"
                                         onChange={handleChange}
                                     >
-                                        {productStatus.map((status, index) => {
-                                            return (
-                                                <MenuItem key={index} value={status}>{status}</MenuItem>
-                                            );
-                                        })}
+                                        {productStatus.map((status, index) => (
+                                            <MenuItem key={index} value={status}>{status}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 <input
@@ -664,8 +568,7 @@ const Product = () => {
                                     onChange={handleImageChange}
                                     style={{margin: '1%', width: "48%"}}
                                 />
-                                
-                                {(imageUrls !== null || images !== null) && (
+                                {previewUrl && (
                                     <Box
                                         sx={{
                                             position: 'relative',
@@ -692,24 +595,26 @@ const Product = () => {
                             <Button 
                                 className="btn-setting"
                                 onClick={handleUpdateProduct}
-                                sx={{color: "white", height:"50px", backgroundColor: "#243642"}} variant="contained">
+                                sx={{color: "white", height:"50px", backgroundColor: "#243642"}} 
+                                variant="contained">
                                 Cập nhật
                             </Button>
                         </Stack>
                     </Box>
                 </Fade>
             </Modal>
-        <Snackbar
-            open={openSnackbar}
-            autoHideDuration={6000}
-            onClose={() => setOpenSnackbar(false)}
-            anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-            <Alert onClose={() => setOpenSnackbar(false)} severity={snackbarSeverity}>
-                {snackbarMessage}
-            </Alert>
-        </Snackbar>                        
+            <Snackbar
+                open={openSnackbar}
+                autoHideDuration={6000}
+                onClose={() => setOpenSnackbar(false)}
+                anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+            >
+                <Alert onClose={() => setOpenSnackbar(false)} severity={snackbarSeverity}>
+                    {snackbarMessage}
+                </Alert>
+            </Snackbar>                        
         </Container>
-    )
-}
-export default Product
+    );
+};
+
+export default Product;
