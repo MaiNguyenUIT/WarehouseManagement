@@ -10,6 +10,9 @@ import com.example.backend.repository.ShelfRepository;
 import com.example.backend.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import com.example.backend.pattern.IteratorPattern.OrderItemIterator;
+import com.example.backend.pattern.IteratorPattern.OrderItemCollection;
+import com.example.backend.pattern.IteratorPattern.OrderItemFilter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -213,13 +216,19 @@ public class OrderItemService implements com.example.backend.service.OrderItemSe
 
     @Override
     public List<String> getAllOrderItemCode() {
-        List<String> orderItemCode = new ArrayList<>();
-        for(OrderItem orderItem : orderItemRepository.findAll()){
-            if(orderItem.getOrderItemState() == ORDER_ITEM_STATE.OUT_ORDER) {
-                orderItemCode.add(orderItem.getOrderItemCode());
+        List<String> codes = new ArrayList<>();
+        List<OrderItem> orderItems = orderItemRepository.findAll();
+        OrderItemCollection collection = new OrderItemCollection(orderItems);
+        OrderItemIterator iterator = collection.createIterator();
+
+        while (iterator.hasNext()) {
+            OrderItem item = iterator.next();
+            if (OrderItemFilter.isOutOrder(item)) {
+                codes.add(item.getOrderItemCode());
             }
         }
-        return orderItemCode;
+
+        return codes;
     }
 
     @Override

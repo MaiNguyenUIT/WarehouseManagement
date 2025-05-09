@@ -20,7 +20,6 @@ public class DeliveredState implements OrderState {
   @Override
   public void deliverOrder(Order order) throws Exception {
     System.out.println("Order " + order.getOrderCode() + " is already delivered.");
-    // throw new Exception("Order is already delivered.");
   }
 
   @Override

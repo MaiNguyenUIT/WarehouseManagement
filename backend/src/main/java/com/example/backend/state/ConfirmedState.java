@@ -14,14 +14,11 @@ public class ConfirmedState implements OrderState {
 
   @Override
   public void confirmOrder(Order order) throws Exception {
-    // Không làm gì cả hoặc báo lỗi, vì đã confirmed rồi
     System.out.println("Order " + order.getOrderCode() + " is already confirmed.");
-    // throw new Exception("Order is already confirmed.");
   }
 
   @Override
   public void shipOrder(Order order) throws Exception {
-    // Logic chuyển sang ON_GOING
     order.setCurrentState(OrderStateFactory.getState(ORDER_STATE.ON_GOING));
     order.setUpdate_at(LocalDate.now());
     System.out.println("Order " + order.getOrderCode() + " shipped.");
@@ -29,12 +26,11 @@ public class ConfirmedState implements OrderState {
 
   @Override
   public void deliverOrder(Order order) throws Exception {
-    throwInvalidOperation(); // Không thể deliver từ CONFIRMED
+    throwInvalidOperation();
   }
 
   @Override
   public void cancelOrder(Order order, OrderItemRepository orderItemRepository) throws Exception {
-    // Logic chuyển sang CANCELLED từ CONFIRMED
     for (String orderItemCode : order.getOrderItem_code()) {
       OrderItem orderItem = orderItemRepository.findByorderItemCode(orderItemCode);
       if (orderItem != null) {

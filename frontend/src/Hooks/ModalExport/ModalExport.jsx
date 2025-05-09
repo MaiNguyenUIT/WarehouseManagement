@@ -16,13 +16,14 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Snackbar, Alert
+  Snackbar,
+  Alert
 } from "@mui/material";
-import ApiService from "../../Service/ApiService.jsx";
+import ExportManagerFacade from "../../Service/ExportManagerFacade"; // Adjust the import path
 
-const ModalExport = ({ open, onClose, onSubmit, shipment,setNotification }) => {
-  const [orders, setOrders] = useState([]); 
-  const [selectedOrderIds, setSelectedOrderIds] = useState([]); 
+const ModalExport = ({ open, onClose, onSubmit, shipment, setNotification }) => {
+  const [orders, setOrders] = useState([]);
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [exportAddress, setExportAddress] = useState("");
   const [exportState, setExportState] = useState("PENDING");
   const [selectedOrders, setSelectedOrders] = useState([]);
@@ -31,24 +32,17 @@ const ModalExport = ({ open, onClose, onSubmit, shipment,setNotification }) => {
   const [loading, setLoading] = useState(false);
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
 
-
   useEffect(() => {
-    // Fetch all orders for selection
+    // Fetch available orders
     const fetchOrders = async () => {
       try {
-        const data = await ApiService.getAllOrders(); // Fetch all orders from API
-        console.log("Fetched Orders:", data); // Log fetched orders for debugging
-
-        // Kiểm tra xem dữ liệu có hợp lệ không
-        if (data && Array.isArray(data)) {
-          // Filter orders that are marked as "OUT_EXPORT"
-          const filteredOrders = data.filter(order => order.orderStatus === "OUT_EXPORT");
-          setOrders(filteredOrders);
-        } else {
-          console.error("Dữ liệu không hợp lệ:", data);
-        }
+        const data = await ExportManagerFacade.fetchAvailableOrders();
+        setOrders(data);
       } catch (error) {
-        console.error("Lỗi khi lấy danh sách đơn hàng:", error);
+        console.error("Error fetching orders:", error.message);
+        setSnackbarMessage("Failed to fetch orders");
+        setSnackbarSeverity("error");
+        setOpenSnackbar(true);
       }
     };
 
@@ -57,22 +51,16 @@ const ModalExport = ({ open, onClose, onSubmit, shipment,setNotification }) => {
     if (shipment) {
       setExportAddress(shipment.export_address || "");
       setExportState(shipment.exportState || "PENDING");
-
-      // Set the selected order IDs
       setSelectedOrderIds(shipment.orderCode || []);
     } else {
-      // Reset the selected orders when no shipment is passed
       setSelectedOrders([]);
       setExportAddress("");
       setExportState("PENDING");
     }
-  }, [shipment]); // Re-run whenever the shipment prop changes
+  }, [shipment]);
 
   useEffect(() => {
-    // Log selected orders when they change
-    console.log("Selected Orders:", selectedOrders); // Log full details of selected orders
-
-    // Fetch the full details for selected orders whenever the selectedOrderIds change
+    // Fetch details for selected orders
     const fetchSelectedOrderDetails = async () => {
       if (selectedOrderIds.length === 0) {
         setSelectedOrders([]);
@@ -80,76 +68,52 @@ const ModalExport = ({ open, onClose, onSubmit, shipment,setNotification }) => {
       }
 
       try {
-        const orderDetails = await Promise.all(
-          selectedOrderIds.map(async (orderCode) => {
-            const response = await ApiService.getOrderByOrderCode(orderCode); // Fetch order by orderCode
-            console.log("Fetched Order Details Response:", response); // Log the full response for debugging
-
-            if (response && response.data) {
-              return response.data; // Return only the 'data' part of the response
-            } else {
-              console.error("Dữ liệu không hợp lệ cho orderCode:", orderCode);
-              return null; // Return null if data is invalid
-            }
-          })
-        );
-
-        // Lọc ra các order hợp lệ
-        setSelectedOrders(orderDetails.filter(order => order !== null));
-
+        const orderDetails = await ExportManagerFacade.fetchOrderDetailsByCodes(selectedOrderIds);
+        setSelectedOrders(orderDetails);
       } catch (error) {
-        console.error("Error fetching order details:", error);
+        console.error("Error fetching order details:", error.message);
+        setSnackbarMessage("Failed to fetch order details");
+        setSnackbarSeverity("error");
+        setOpenSnackbar(true);
       }
     };
 
     fetchSelectedOrderDetails();
-  }, [selectedOrderIds]); // Re-run whenever selectedOrderIds changes
+  }, [selectedOrderIds]);
 
-  const handleAddOrder = async (orderCode) => {
+  const handleAddOrder = (orderCode) => {
     if (!selectedOrderIds.includes(orderCode)) {
-      setSelectedOrderIds((prevSelected) => [...prevSelected, orderCode]);
-  
-      // Tìm đơn hàng trong danh sách `orders` và thêm vào `selectedOrders`
+      setSelectedOrderIds((prev) => [...prev, orderCode]);
       const orderToAdd = orders.find((order) => order.orderCode === orderCode);
       if (orderToAdd) {
-        setSelectedOrders((prevSelected) => [...prevSelected, orderToAdd]);
+        setSelectedOrders((prev) => [...prev, orderToAdd]);
       }
-  
-      // Xóa đơn hàng khỏi danh sách `orders`
-      setOrders((prevOrders) => prevOrders.filter((order) => order.orderCode !== orderCode));
+      setOrders((prev) => prev.filter((order) => order.orderCode !== orderCode));
     }
   };
 
   const handleRemoveOrder = async (orderCode) => {
     try {
-      const removedOrder = selectedOrders.find((order) => order.orderCode === orderCode);
-      setSelectedOrders((prevSelected) => prevSelected.filter((order) => order.orderCode !== orderCode));
+      const removedOrder = await ExportManagerFacade.removeOrderFromShipment(orderCode);
+      setSelectedOrders((prev) => prev.filter((order) => order.orderCode !== orderCode));
+      setSelectedOrderIds((prev) => prev.filter((code) => code !== orderCode));
       if (removedOrder) {
-        setOrders((prevOrders) => [...prevOrders, removedOrder]);
+        setOrders((prev) => [...prev, removedOrder]);
       }
-      setSelectedOrderIds((prevSelected) => prevSelected.filter((code) => code !== orderCode));
-      const response = await ApiService.getOrderByOrderCode(orderCode);
-      const orderId = response.data.id;
-      const formData = { orderStatus: "OUT_EXPORT" };
-      await ApiService.updateOrderStatus(orderId, formData);
-  
-      console.log(`Order ${orderId} status updated to OUT_EXPORT`);
     } catch (error) {
-      console.error(`Error updating order status for ${orderCode}:`, error);
+      console.error("Error removing order:", error.message);
+      setSnackbarMessage(`Failed to remove order ${orderCode}`);
+      setSnackbarSeverity("error");
+      setOpenSnackbar(true);
     }
   };
-  
+
   const handleSubmit = async () => {
     if (selectedOrderIds.length === 0) {
-      console.error("No orders selected, cannot submit export.");
-      const notificationData = {
-        type: "warning",
-        message: "Vui lòng chọn ít nhất một đơn hàng.",
-      };
-      setNotification(notificationData);
-      setSnackbarMessage(notificationData.message);
+      setSnackbarMessage("Please select at least one order");
       setSnackbarSeverity("warning");
-      setOpenSnackbar(true); 
+      setOpenSnackbar(true);
+      setNotification({ type: "warning", message: "Please select at least one order" });
       return;
     }
 
@@ -165,78 +129,62 @@ const ModalExport = ({ open, onClose, onSubmit, shipment,setNotification }) => {
 
     try {
       setLoading(true);
-
       if (shipment) {
-        if (exportState === "PENDING" || exportState === "CONFIRMED") {
-          console.log("Updating export with data:", newExport);
-          await ApiService.updateExport(shipment.id, newExport);
-          setSnackbarMessage("Cập nhật xuất hàng thành công!");
-          setSnackbarSeverity("success");
-          setOpenSnackbar(true);
-        } else if (exportState === "ON_GOING") {
-          await ApiService.updateExportState(shipment.id, { exportState });
-          setSnackbarMessage("Cập nhật trạng thái xuất hàng thành công!");
-          setSnackbarSeverity("success");
-          setOpenSnackbar(true); 
-        }
-      } else {
-        await ApiService.addExport(newExport);
-        setSnackbarMessage("Tạo xuất hàng mới thành công!");
+        await ExportManagerFacade.updateExportShipment(shipment.id, newExport, exportState === "ON_GOING");
+        setSnackbarMessage("Shipment updated successfully!");
         setSnackbarSeverity("success");
-        setOpenSnackbar(true); 
+        setOpenSnackbar(true);
+        setNotification({ type: "success", message: "Shipment updated successfully!" });
+      } else {
+        await ExportManagerFacade.createExportShipment(newExport);
+        setSnackbarMessage("Shipment created successfully!");
+        setSnackbarSeverity("success");
+        setOpenSnackbar(true);
+        setNotification({ type: "success", message: "Shipment created successfully!" });
       }
 
       setTimeout(() => {
         setLoading(false);
-        onSubmit();
+        onSubmit(newExport, !!shipment);
         onClose();
       }, 1500);
     } catch (error) {
-      console.error("Lỗi khi tạo hoặc cập nhật xuất hàng:", error);
-      setSnackbarMessage("Có lỗi xảy ra khi cập nhật xuất hàng.");
+      console.error("Error submitting shipment:", error.message);
+      setSnackbarMessage("Failed to save shipment");
       setSnackbarSeverity("error");
-      setOpenSnackbar(true); 
-    }
-};
-
-
-  const handleUpdateExportState = async (newState) => {
-    if (!shipment || !shipment.id) {
-      console.error("Không thể cập nhật trạng thái: thiếu thông tin xuất hàng.");
       setOpenSnackbar(true);
-      return;
-    }
-  
-    try {
-      const updatedExport = {
-        exportState: newState, 
-      };
-      await ApiService.updateExportState(shipment.id, updatedExport);
-      setExportState(newState); // Cập nhật trạng thái trong UI
-      setOpenSnackbar(true);
-    } catch (error) {
-      console.error("Lỗi khi cập nhật trạng thái xuất hàng:", error);
-      setOpenSnackbar(true);
+      setNotification({ type: "error", message: "Failed to save shipment" });
     }
   };
-  
-  
+
   const handleClose = () => {
-    // Reset all states when closing
     setSelectedOrderIds([]);
     setSelectedOrders([]);
     setExportAddress("");
     setExportState("PENDING");
+    setOpenSnackbar(false);
     onClose();
   };
 
   return (
     <Modal open={open} onClose={handleClose} closeAfterTransition>
       <Fade in={open}>
-        <Box sx={{ position: "absolute", top: "40%", left: "50%", transform: "translate(-50%, -50%)", width: 1000, bgcolor: "background.paper", boxShadow: 24, p: 4,overflow: "auto",   maxHeight: "90vh", }}>
-          <Typography sx={{ fontWeight: "bold", mb: 2 }}>{shipment ? "Chỉnh Sửa Xuất Hàng" : "Tạo Xuất Hàng"}</Typography>
+        <Box sx={{
+          position: "absolute",
+          top: "40%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: 1000,
+          bgcolor: "background.paper",
+          boxShadow: 24,
+          p: 4,
+          overflow: "auto",
+          maxHeight: "90vh",
+        }}>
+          <Typography sx={{ fontWeight: "bold", mb: 2 }}>
+            {shipment ? "Chỉnh Sửa Xuất Hàng" : "Tạo Xuất Hàng"}
+          </Typography>
 
-          {/* Địa chỉ xuất hàng */}
           <TextField
             fullWidth
             label="Địa chỉ xuất hàng"
@@ -245,7 +193,6 @@ const ModalExport = ({ open, onClose, onSubmit, shipment,setNotification }) => {
             sx={{ marginBottom: "1rem" }}
           />
 
-          {/* Selected orders */}
           <Typography sx={{ fontWeight: "bold", mb: 2 }}>Đơn Hàng Đã Chọn</Typography>
           <Paper sx={{ maxHeight: 300, overflow: "auto" }}>
             <Table stickyHeader>
@@ -272,15 +219,12 @@ const ModalExport = ({ open, onClose, onSubmit, shipment,setNotification }) => {
             </Table>
           </Paper>
 
-          {/* Export State */}
           {shipment && (
             <FormControl fullWidth sx={{ marginTop: "1rem" }}>
               <InputLabel>Trạng Thái Xuất Hàng</InputLabel>
               <Select
                 value={exportState}
-                onChange={(e) => {
-                  setExportState(e.target.value); // Cập nhật giá trị exportState
-                }}
+                onChange={(e) => setExportState(e.target.value)}
               >
                 <MenuItem value="PENDING">Chờ xử lý</MenuItem>
                 <MenuItem value="ON_GOING">Đang giao</MenuItem>
@@ -289,7 +233,6 @@ const ModalExport = ({ open, onClose, onSubmit, shipment,setNotification }) => {
             </FormControl>
           )}
 
-          {/* All available orders */}
           <Typography sx={{ fontWeight: "bold", mb: 2, marginTop: "2rem" }}>Chọn Đơn Hàng</Typography>
           <Paper sx={{ maxHeight: 400, overflow: "auto" }}>
             <Table stickyHeader>
@@ -311,9 +254,9 @@ const ModalExport = ({ open, onClose, onSubmit, shipment,setNotification }) => {
                           Xóa
                         </Button>
                       ) : (
-                        <Button 
-                          variant="contained" 
-                          sx={{ backgroundColor: "#243642", color: "white", "&:hover": { backgroundColor: "#1a2a33" } }} 
+                        <Button
+                          variant="contained"
+                          sx={{ backgroundColor: "#243642", color: "white", "&:hover": { backgroundColor: "#1a2a33" } }}
                           onClick={() => handleAddOrder(order.orderCode)}
                         >
                           Thêm
@@ -325,6 +268,7 @@ const ModalExport = ({ open, onClose, onSubmit, shipment,setNotification }) => {
               </TableBody>
             </Table>
           </Paper>
+
           <Snackbar
             open={openSnackbar}
             autoHideDuration={1500}
@@ -336,16 +280,15 @@ const ModalExport = ({ open, onClose, onSubmit, shipment,setNotification }) => {
             </Alert>
           </Snackbar>
 
-
-          {/* Submit Button */}
           <Box sx={{ marginTop: "2rem", textAlign: "right" }}>
             <Button variant="outlined" color="error" onClick={handleClose}>
               Đóng
             </Button>
-            <Button 
-              variant="contained" 
-              sx={{ backgroundColor: "#243642", color: "white", "&:hover": { backgroundColor: "#1a2a33" }, marginLeft: "1rem" }} 
+            <Button
+              variant="contained"
+              sx={{ backgroundColor: "#243642", color: "white", "&:hover": { backgroundColor: "#1a2a33" }, marginLeft: "1rem" }}
               onClick={handleSubmit}
+              disabled={loading}
             >
               Lưu
             </Button>

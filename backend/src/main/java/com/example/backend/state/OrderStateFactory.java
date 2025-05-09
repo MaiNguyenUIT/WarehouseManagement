@@ -5,7 +5,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class OrderStateFactory {
-  // Dùng map để cache lại các instance của State (singleton)
   private static final Map<ORDER_STATE, OrderState> stateCache = new ConcurrentHashMap<>();
 
   static {
@@ -19,7 +18,6 @@ public class OrderStateFactory {
   public static OrderState getState(ORDER_STATE stateEnum) {
     OrderState state = stateCache.get(stateEnum);
     if (state == null) {
-      // Hoặc có thể throw exception nếu stateEnum không hợp lệ
       throw new IllegalArgumentException("Invalid state enum: " + stateEnum);
     }
     return state;

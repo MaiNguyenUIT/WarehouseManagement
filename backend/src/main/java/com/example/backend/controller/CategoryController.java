@@ -2,6 +2,7 @@ package com.example.backend.controller;
 
 import com.example.backend.model.Category;
 import com.example.backend.model.User;
+import com.example.backend.pattern.BuilderPattern.ApiResponse;
 import com.example.backend.request.CategoryRequest;
 import com.example.backend.service.CategoryService;
 import com.example.backend.service.UserService;
@@ -20,21 +21,39 @@ public class CategoryController {
     private CategoryService categoryService;
     @Autowired
     private UserService userService;
+
     @GetMapping("")
-    public ResponseEntity<List<Category>> getAllCategory(@RequestHeader("Authorization") String jwt) throws Exception{
+    public ResponseEntity<ApiResponse<List<Category>>> getAllCategory(@RequestHeader("Authorization") String jwt) throws Exception{
         User user = userService.findUserByJwtToken(jwt);
-        return new ResponseEntity<>(categoryService.getAllCategory(), HttpStatus.OK);
+        ApiResponse<List<Category>> response = new ApiResponse.Builder<List<Category>>()
+                .data(categoryService.getAllCategory())
+                .status(200)
+                .message("Get all category successfully")
+                .build();
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/getCategoryName")
-    public ResponseEntity<List<String>> getAllCategoryName(@RequestHeader("Authorization") String jwt) throws Exception{
+    public ResponseEntity<List<String>> getAllCategoryName(@RequestHeader("Authorization") String jwt)
+            throws Exception {
         User user = userService.findUserByJwtToken(jwt);
-        return new ResponseEntity<>(categoryService.getCategoryName(), HttpStatus.OK);
+        ApiResponse<List<String>> response = new ApiResponse.Builder<List<String>>()
+                .data(categoryService.getCategoryName())
+                .status(200)
+                .message("Get all category name successfully")
+                .build();
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Optional<Category>> getCategoryById(@RequestHeader("Authorization") String jwt, @PathVariable String id) throws Exception{
+    public ResponseEntity<Optional<Category>> getCategoryById(@RequestHeader("Authorization") String jwt,
+            @PathVariable String id) throws Exception {
         User user = userService.findUserByJwtToken(jwt);
-        return new ResponseEntity<>(categoryService.getCategoryById(id), HttpStatus.OK);
+        ApiResponse<Optional<Category>> response = new ApiResponse.Builder<Optional<Category>>()
+                .data(categoryService.getCategoryById(id))
+                .status(200)
+                .message("Get all category successfully")
+                .build();
+        return ResponseEntity.ok(response);
     }
 }

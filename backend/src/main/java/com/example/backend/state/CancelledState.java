@@ -7,7 +7,6 @@ import com.example.backend.request.OrderItemRequest;
 
 public class CancelledState implements OrderState {
 
-  // Không cho phép bất kỳ hành động nào khi đã hủy
   private void throwCancelledError() throws Exception {
     throw new Exception("Order is already cancelled.");
   }
@@ -30,7 +29,6 @@ public class CancelledState implements OrderState {
   @Override
   public void cancelOrder(Order order, OrderItemRepository orderItemRepository) throws Exception {
     System.out.println("Order " + order.getOrderCode() + " is already cancelled.");
-    // throwCancelledError();
   }
 
   @Override

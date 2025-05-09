@@ -14,7 +14,6 @@ public class PendingState implements OrderState {
 
   @Override
   public void confirmOrder(Order order) throws Exception {
-    // Logic chuyển sang trạng thái CONFIRMED
     order.setCurrentState(OrderStateFactory.getState(ORDER_STATE.CONFIRMED));
     order.setUpdate_at(LocalDate.now());
     System.out.println("Order " + order.getOrderCode() + " confirmed.");
@@ -22,18 +21,16 @@ public class PendingState implements OrderState {
 
   @Override
   public void shipOrder(Order order) throws Exception {
-    throwInvalidOperation(); // Không thể ship từ PENDING
+    throwInvalidOperation();
   }
 
   @Override
   public void deliverOrder(Order order) throws Exception {
-    throwInvalidOperation(); // Không thể deliver từ PENDING
+    throwInvalidOperation();
   }
 
   @Override
   public void cancelOrder(Order order, OrderItemRepository orderItemRepository) throws Exception {
-    // Logic chuyển sang trạng thái CANCELLED
-    // Logic cập nhật OrderItem và OrderStatus như trong service cũ
     for (String orderItemCode : order.getOrderItem_code()) {
       OrderItem orderItem = orderItemRepository.findByorderItemCode(orderItemCode);
       if (orderItem != null) { // Kiểm tra null phòng trường hợp dữ liệu không nhất quán
@@ -41,7 +38,7 @@ public class PendingState implements OrderState {
         orderItemRepository.save(orderItem);
       }
     }
-    order.setOrderStatus(ORDER_STATUS.OUT_EXPORT); // Set status khi cancel
+    order.setOrderStatus(ORDER_STATUS.OUT_EXPORT);
     order.setCurrentState(OrderStateFactory.getState(ORDER_STATE.CANCELLED));
     order.setUpdate_at(LocalDate.now());
     System.out.println("Order " + order.getOrderCode() + " cancelled.");
@@ -64,7 +61,6 @@ public class PendingState implements OrderState {
         throw new Exception("Order item with code " + orderItemCode + " not found.");
       }
       totalPrice += orderItem.getTotalPrice();
-      // Đảm bảo trạng thái của item được cập nhật đúng
       if (orderItem.getOrderItemState() == ORDER_ITEM_STATE.OUT_ORDER) {
         orderItem.setOrderItemState(ORDER_ITEM_STATE.IN_ORDER);
         orderItemRepository.save(orderItem);

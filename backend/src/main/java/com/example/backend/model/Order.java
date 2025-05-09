@@ -25,9 +25,6 @@ public class Order {
     private List<String> orderItem_code;
     private int orderItem_quantity;
 
-    // private ORDER_STATE orderState = ORDER_STATE.PENDING; // <-- Loại bỏ trường
-    // này
-
     @Field("order_state") // Đổi tên field lưu enum trong DB nếu muốn
     private ORDER_STATE stateEnum = ORDER_STATE.PENDING; // <-- Trường lưu trạng thái Enum vào DB
 

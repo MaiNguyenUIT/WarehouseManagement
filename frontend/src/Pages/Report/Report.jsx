@@ -1,278 +1,195 @@
-import React, { useEffect, useState } from 'react'
-import cloneDeep from 'lodash.clonedeep' // Import cloneDeep
-import './Report.css'
-import PrimarySearchAppBar from '../../Component/AppBar/AppBar.jsx'
+import React, { useEffect, useState } from "react";
+import './Report.css';
+import PrimarySearchAppBar from "../../Component/AppBar/AppBar";
 import {
-  Container,
-  FormControl,
-  InputLabel,
-  Stack,
-  Typography,
-  TextField,
-  Button,
-  Modal,
-  Fade,
-  Box,
-  Snackbar,
-  Alert,
-  Select,
-  MenuItem
-} from '@mui/material'
-import AddIcon from '@mui/icons-material/Add'
-import TableReport from '../../Hooks/TableReport.jsx/TableReport.jsx'
-import ApiService from '../../Service/ApiService.jsx'
+  Container, FormControl, InputLabel, Stack, Typography, TextField, Button,
+  Modal, Fade, Box, Snackbar, Alert, Select, MenuItem
+} from "@mui/material";
+import TableReport from "../../Hooks/TableReport.jsx/TableReport";
+import ReportManagerFacade from "../../Service/ReportManagerFacade"; // Adjust the import path
 
 const style = {
-  position: 'absolute',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
+  position: "absolute",
+  top: "47%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
   width: 650,
-  bgcolor: 'background.paper',
+  bgcolor: "background.paper",
   boxShadow: 24,
   p: 4,
-  maxHeight: '90vh',
-  overflowY: 'auto'
-}
-
-// --- Prototype: Trạng thái mặc định cho báo cáo mới ---
-const defaultNewReportState = {
-  title: '',
-  // userName: "", // Nên lấy tự động từ user đăng nhập, không cần nhập tay
-  description: '',
-  reportPriority: 'MEDIUM',
-  createdAt: ''
-}
-// ---
+};
 
 const Report = () => {
-  const [report, setReport] = useState([])
-  const [reportOrStaff, setReportOrStaff] = useState([])
-  const [role, setRole] = useState(localStorage.getItem('role') || '')
-  const [userName, setUserName] = useState(
-    localStorage.getItem('userName') || ''
-  ) // Lấy userName từ localStorage
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [openSnackbar, setOpenSnackbar] = useState(false)
-  const [snackbarMessage, setSnackbarMessage] = useState('')
-  const [snackbarSeverity, setSnackbarSeverity] = useState('success')
-  // Khởi tạo state form từ prototype
-  const [newReportData, setNewReportData] = useState(defaultNewReportState)
+  const [reports, setReports] = useState([]);
+  const [role, setRole] = useState(localStorage.getItem('role') || '');
+  const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  const [newReportData, setNewReportData] = useState({
+    title: "",
+    description: "",
+    reportPriority: "",
+    createdAt: "",
+  });
 
-  const fetchReport = async () => {
+  // Fetch reports based on role
+  const fetchReports = async () => {
     try {
-      const response = await ApiService.getAllReport()
-      setReport(response)
+      const response = await ReportManagerFacade.fetchReportsByRole(role);
+      setReports(response);
     } catch (error) {
-      console.error('Lỗi khi tải dữ liệu các báo cáo (Admin):', error.message)
+      console.error("Error fetching reports:", error.message);
+      setSnackbarMessage("Error fetching reports");
+      setSnackbarSeverity("error");
+      setOpenSnackbar(true);
     }
-  }
-  const fetchReportOrStaff = async () => {
-    try {
-      const response = await ApiService.getAllReportOrStaff()
-      setReportOrStaff(response)
-    } catch (error) {
-      console.error('Lỗi khi tải dữ liệu các báo cáo (Staff):', error.message)
-    }
-  }
+  };
 
-  // --- Xử lý Modal Add ---
-  const handleOpenAddModal = () => {
-    // Clone prototype để reset form mỗi khi mở
-    setNewReportData(cloneDeep(defaultNewReportState))
-    setIsAddModalOpen(true)
-  }
-
-  const handleCloseAddModal = () => {
-    setIsAddModalOpen(false)
-    // Không cần reset state ở đây nữa vì đã reset khi mở
-  }
-
-  // Cập nhật state form khi input thay đổi
-  const handleFormChange = event => {
-    const { name, value } = event.target
-    setNewReportData(prevData => ({
-      ...prevData,
-      [name]: value
-    }))
-  }
-
+  // Handle adding a new report
   const handleAddNewReport = async () => {
     try {
-      const dataToSend = {
-        ...newReportData,
-        userName: userName,
-        createdAt: new Date().toISOString()
-      }
-
-      const response = await ApiService.addReport(dataToSend)
-
-      if (response) {
-        // Cập nhật state local (tùy thuộc vào user role)
-        if (role === 'ROLE_ADMIN') {
-          setReport(prev => [...prev, response])
-        }
-        if (role === 'ROLE_STAFF') {
-          setReportOrStaff(prev => [...prev, response])
-        }
-        fetchReport() // Fetch lại cả 2 để đảm bảo đồng bộ
-        fetchReportOrStaff()
-
-        setSnackbarMessage('Thêm báo cáo mới thành công!')
-        setSnackbarSeverity('success')
-        setOpenSnackbar(true)
-        handleCloseAddModal() // Đóng modal sau khi thành công
-      } else {
-        throw new Error('Không nhận được phản hồi hợp lệ từ server')
-      }
+      const { addResponse, updatedReports } = await ReportManagerFacade.addAndListReports(newReportData, role);
+      setReports(updatedReports);
+      setSnackbarMessage("Report added successfully!");
+      setSnackbarSeverity("success");
+      setOpenSnackbar(true);
+      handleCloseAddModal();
     } catch (error) {
-      console.error('Lỗi khi thêm báo cáo:', error)
-      setSnackbarMessage(
-        `Lỗi khi thêm báo cáo: ${error.message || 'Lỗi không xác định'}`
-      )
-      setSnackbarSeverity('error')
-      setOpenSnackbar(true)
+      setSnackbarMessage(`Error adding report: ${error.message}`);
+      setSnackbarSeverity("error");
+      setOpenSnackbar(true);
     }
-  }
+  };
 
-  // Fetch dữ liệu khi component mount
+  // Open and close modal
+  const handleOpenAddModal = () => {
+    setIsAddModalOpen(true);
+  };
+
+  const handleCloseAddModal = () => {
+    setIsAddModalOpen(false);
+    setNewReportData({
+      title: "",
+      description: "",
+      reportPriority: "",
+      createdAt: "",
+    });
+  };
+
+  // Fetch reports on mount or when role changes
   useEffect(() => {
-    fetchReport()
-    fetchReportOrStaff()
-  }, [])
+    if (role) {
+      fetchReports();
+    }
+  }, [role]);
 
   return (
-    <Container maxWidth='xl' className='Report'>
+    <Container maxWidth="xl" className="Report">
       <PrimarySearchAppBar />
       <Stack
-        className='shelf-bar'
-        sx={{
-          backgroundColor: '#E2F1E7',
-          padding: '1rem',
-          borderRadius: '0.5rem',
-          marginTop: '1rem'
-        }}
+        className="shelf-bar"
+        sx={{ backgroundColor: "#E2F1E7", padding: "1rem", borderRadius: "0.5rem" }}
       >
-        <Stack
-          direction={'row'}
-          justifyContent={'space-between'}
-          alignItems={'center'}
-        >
+        <Stack direction={"row"} justifyContent={"space-between"} alignItems={"center"}>
           <Typography
-            sx={{
-              fontWeight: 'bold',
-              fontSize: '20px',
-              paddingLeft: '20px',
-              width: 'auto'
-            }}
-            variant='p'
+            sx={{ fontWeight: "bold", fontSize: "20px", paddingLeft: "20px", width: "200px" }}
+            variant="p"
           >
             Quản lý báo cáo
           </Typography>
-
-          {role === 'ROLE_STAFF' && (
+          <Stack direction="row" spacing={2} sx={{ marginBottom: "10px"}}>
+            <TextField
+              placeholder="Tìm kiếm"
+              variant="outlined"
+              sx={{ width: "100%" }}
+            />
             <Button
               sx={{
-                backgroundColor: '#243642',
-                width: 'auto',
-                color: 'white',
-                ':hover': {
-                  backgroundColor: '#1A2B36'
-                }
+                backgroundColor: "#243642",
+                width: "200px",
+                color: "white",
+                ":hover": { backgroundColor: "#1A2B36" },
               }}
-              variant='contained'
+              variant="contained"
               onClick={handleOpenAddModal}
-              startIcon={<AddIcon />}
             >
               Tạo báo cáo
             </Button>
-          )}
+          </Stack>
         </Stack>
       </Stack>
-
-      {role === 'ROLE_ADMIN' && <TableReport valueReport={report} />}
-      {role === 'ROLE_STAFF' && <TableReport valueReport={reportOrStaff} />}
+      <TableReport valueReport={reports} />
 
       <Modal open={isAddModalOpen} onClose={handleCloseAddModal}>
         <Fade in={isAddModalOpen}>
           <Box sx={style}>
             <Typography
-              sx={{
-                fontWeight: 'bold',
-                fontSize: '20px',
-                marginBottom: '1rem',
-                textAlign: 'center'
-              }}
-              variant='h6'
+              sx={{ fontWeight: "bold", fontSize: "20px", marginBottom: "1rem" }}
             >
               Tạo báo cáo mới
             </Typography>
-            {/* Sử dụng state newReportData và hàm handleFormChange */}
             <Stack spacing={2}>
               <TextField
-                required
-                label='Tên báo cáo'
-                name='title'
+                label="Tên báo cáo"
                 value={newReportData.title}
-                onChange={handleFormChange}
+                onChange={(e) =>
+                  setNewReportData({ ...newReportData, title: e.target.value })
+                }
               />
               <TextField
-                required
-                label='Nội dung'
-                name='description'
-                multiline
-                rows={4}
+                label="Nội dung"
                 value={newReportData.description}
-                onChange={handleFormChange}
+                onChange={(e) =>
+                  setNewReportData({ ...newReportData, description: e.target.value })
+                }
               />
-              <FormControl fullWidth required>
-                {' '}
-                <InputLabel id='report-priority-label'>Mức ưu tiên</InputLabel>
+              <FormControl fullWidth>
+                <InputLabel id="report-priority-label">Mức ưu tiên</InputLabel>
                 <Select
-                  labelId='report-priority-label'
-                  id='report-priority'
-                  name='reportPriority'
+                  labelId="report-priority-label"
+                  id="report-priority"
                   value={newReportData.reportPriority}
-                  label='Mức ưu tiên'
-                  onChange={handleFormChange}
+                  onChange={(e) =>
+                    setNewReportData({ ...newReportData, reportPriority: e.target.value })
+                  }
                 >
-                  <MenuItem value='LOW'>Thấp (LOW)</MenuItem>
-                  <MenuItem value='MEDIUM'>Trung bình (MEDIUM)</MenuItem>
-                  <MenuItem value='HIGH'>Cao (HIGH)</MenuItem>
+                  <MenuItem value="LOW">LOW</MenuItem>
+                  <MenuItem value="MEDIUM">MEDIUM</MenuItem>
+                  <MenuItem value="HIGH">HIGH</MenuItem>
                 </Select>
               </FormControl>
+              <TextField
+                label="Ngày tạo"
+                value={newReportData.createdAt}
+                onChange={(e) =>
+                  setNewReportData({ ...newReportData, createdAt: e.target.value })
+                }
+              />
               <Button
-                sx={{
-                  backgroundColor: '#243642',
-                  color: 'white',
-                  ':hover': { backgroundColor: '#1A2B36' },
-                  marginTop: '1rem'
-                }}
-                variant='contained'
+                sx={{ backgroundColor: "#243642" }}
+                variant="contained"
                 onClick={handleAddNewReport}
               >
-                Lưu Báo Cáo
+                Lưu
               </Button>
             </Stack>
           </Box>
         </Fade>
       </Modal>
-
       <Snackbar
         open={openSnackbar}
         autoHideDuration={6000}
         onClose={() => setOpenSnackbar(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert
-          onClose={() => setOpenSnackbar(false)}
-          severity={snackbarSeverity}
-          sx={{ width: '100%' }}
-        >
+        <Alert onClose={() => setOpenSnackbar(false)} severity={snackbarSeverity}>
           {snackbarMessage}
         </Alert>
       </Snackbar>
     </Container>
-  )
-}
-export default Report
+  );
+};
+
+export default Report;

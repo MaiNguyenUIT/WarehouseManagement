@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react' // Đã thêm useState
-import cloneDeep from 'lodash.clonedeep' // Import cloneDeep từ lodash
+import React, { useEffect, useState } from 'react'
 import './Supplier.css'
 import {
   alpha,
@@ -17,10 +16,9 @@ import {
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
-import MyTable from '../../Component/MyTable' // Giả sử MyTable nhận props như cũ
+import MyTable from '../../Component/MyTable'
 import ApiService from '../../Service/ApiService'
 
-// --- Các styled components (StyledInputBase, Search) giữ nguyên ---
 const StyledInputBase = styled(InputBase)(({ theme }) => ({
   color: 'black',
   width: '100%',
@@ -50,9 +48,7 @@ const Search = styled('div')(({ theme }) => ({
     width: 'auto'
   }
 }))
-// ---
 
-// --- Cấu trúc cột cho bảng giữ nguyên ---
 const columns = [
   { id: 'stt', label: 'STT', minWidth: 50, align: 'center' },
   {
@@ -107,19 +103,23 @@ export default function Supplier () {
   const fetchRows = async () => {
     try {
       const response = await ApiService.getAllSupplier()
-      const rowsWithStt = response.map((row, index) => ({
-        ...row,
-        stt: index + 1
-      }))
+      const rowsWithStt = Array.isArray(response)
+        ? response.map((row, index) => ({
+            ...row,
+            stt: index + 1
+          }))
+        : []
       setRows(rowsWithStt)
     } catch (error) {
       console.error('Lỗi khi tải thông tin nhà cung cấp:', error.message)
+      setRows([])
     }
   }
 
   // Xử lý mở Modal Add
   const handleOpen = () => {
-    setFormData(cloneDeep(defaultSupplierState)) // Clone prototype để reset form
+    // Sử dụng Spread Syntax để tạo shallow copy, reset form về trạng thái mặc định
+    setFormData({ ...defaultSupplierState })
     setOpen(true)
   }
 
@@ -129,7 +129,8 @@ export default function Supplier () {
   // Xử lý mở Modal Edit
   const handleEditButton = row => {
     setSelectedRowId(row.id)
-    setFormData(cloneDeep(row)) // Clone dữ liệu của dòng được chọn vào form state
+    // Sử dụng Spread Syntax để tạo shallow copy dữ liệu dòng vào form
+    setFormData({ ...row })
     setOpenEdit(true)
   }
 
@@ -142,7 +143,13 @@ export default function Supplier () {
   // Xử lý submit form Add
   const handleAddSupplier = async () => {
     try {
-      const respond = await ApiService.addSupplier(formData)
+      const dataToSend = {
+        nameSupplier: formData.nameSupplier,
+        address: formData.address,
+        phoneNumber: formData.phoneNumber,
+        email: formData.email
+      }
+      const respond = await ApiService.addSupplier(dataToSend)
       if (respond && (respond.status === 201 || respond.status === 200)) {
         handleClose()
         fetchRows()
@@ -158,7 +165,12 @@ export default function Supplier () {
   const handleUpdateSupplier = async () => {
     if (!selectedRowId) return
     try {
-      const dataToSend = { ...formData }
+      const dataToSend = {
+        nameSupplier: formData.nameSupplier,
+        address: formData.address,
+        phoneNumber: formData.phoneNumber,
+        email: formData.email
+      }
       const respond = await ApiService.updateSupplier(selectedRowId, dataToSend)
       if (respond && respond.status === 200) {
         handleCloseEdit()
@@ -173,10 +185,14 @@ export default function Supplier () {
 
   // Xử lý nút Delete
   const handleDeleteButton = async id => {
-    if (window.confirm(`Bạn có chắc muốn xóa nhà cung cấp với ID: ${id}?`)) {
+    if (window.confirm(`Bạn có chắc muốn xóa nhà cung cấp này không?`)) {
       try {
-        await ApiService.deleteSupplier(id)
-        setRows(prevRows => prevRows.filter(row => row.id !== id))
+        const response = await ApiService.deleteSupplier(id)
+        if (response && (response.status === 200 || response.status === 204)) {
+          setRows(prevRows => prevRows.filter(row => row.id !== id))
+        } else {
+          console.error('Xóa nhà cung cấp thất bại:', response)
+        }
       } catch (error) {
         console.error('Lỗi khi xóa nhà cung cấp:', error)
       }
@@ -285,6 +301,7 @@ export default function Supplier () {
         />
       </Stack>
 
+      {/* --- Modal Add --- */}
       <Modal
         aria-labelledby='transition-modal-add-title'
         aria-describedby='transition-modal-add-description'
@@ -293,41 +310,48 @@ export default function Supplier () {
         closeAfterTransition
       >
         <Fade in={open}>
-          <Box sx={style}>
+          <Box
+            sx={style}
+            component='form'
+            onSubmit={e => {
+              e.preventDefault()
+              handleAddSupplier()
+            }}
+          >
+            {' '}
             <Stack
               className='template-add-iventory'
               direction={'column'}
               alignItems={'center'}
+              spacing={2}
             >
               <Typography
+                id='transition-modal-add-title'
                 sx={{
                   textAlign: 'center',
                   fontWeight: 'bold',
                   fontSize: '20px',
-                  width: '100%'
+                  width: '100%',
+                  mb: 2
                 }}
-                variant='p'
+                variant='h6'
+                component='h2'
               >
                 Thêm nhà cung cấp
               </Typography>
-              <Stack
-                sx={{ marginTop: '1rem', marginBottom: '1rem' }}
-                className='body-infor'
-                flexWrap='wrap'
-                direction={'row'}
-                alignItems={'center'}
-              >
+              <TextField
+                sx={{ width: '100%' }}
+                value={formData.nameSupplier}
+                onChange={handleChange}
+                name='nameSupplier'
+                label='Tên nhà cung cấp'
+                variant='outlined'
+                required
+                autoFocus
+              />
+              <Stack direction='row' spacing={2} sx={{ width: '100%' }}>
                 <TextField
-                  sx={{ margin: '1%', width: '100%' }}
-                  value={formData.nameSupplier}
-                  onChange={handleChange}
-                  name='nameSupplier'
-                  label='Tên nhà cung cấp'
-                  variant='outlined'
-                  required
-                />
-                <TextField
-                  sx={{ margin: '1%', width: '48%' }}
+                  sx={{ width: '50%' }}
                   value={formData.email}
                   onChange={handleChange}
                   name='email'
@@ -336,40 +360,50 @@ export default function Supplier () {
                   type='email'
                 />
                 <TextField
-                  sx={{ margin: '1%', width: '48%' }}
+                  sx={{ width: '50%' }}
                   value={formData.phoneNumber}
                   onChange={handleChange}
                   name='phoneNumber'
                   label='Số điện thoại'
                   variant='outlined'
                 />
-                <TextField
-                  sx={{ margin: '1%', width: '100%' }}
-                  value={formData.address}
-                  onChange={handleChange}
-                  name='address'
-                  label='Địa chỉ'
-                  variant='outlined'
-                />
               </Stack>
-              <Button
-                className='btn-setting'
-                onClick={handleAddSupplier}
-                sx={{
-                  color: 'white',
-                  height: '50px',
-                  backgroundColor: '#243642',
-                  '&:hover': { backgroundColor: '#1c2b35' }
-                }}
-                variant='contained'
+              <TextField
+                sx={{ width: '100%' }}
+                value={formData.address}
+                onChange={handleChange}
+                name='address'
+                label='Địa chỉ'
+                variant='outlined'
+                multiline
+                rows={3}
+              />
+              <Stack
+                direction='row'
+                spacing={2}
+                justifyContent='flex-end'
+                sx={{ width: '100%', mt: 2 }}
               >
-                Thêm nhà cung cấp
-              </Button>
+                <Button onClick={handleClose}>Hủy</Button>
+                <Button
+                  type='submit'
+                  className='btn-setting'
+                  sx={{
+                    color: 'white',
+                    backgroundColor: '#243642',
+                    '&:hover': { backgroundColor: '#1c2b35' }
+                  }}
+                  variant='contained'
+                >
+                  Thêm
+                </Button>
+              </Stack>
             </Stack>
           </Box>
         </Fade>
       </Modal>
 
+      {/* --- Modal Edit --- */}
       <Modal
         aria-labelledby='transition-modal-edit-title'
         aria-describedby='transition-modal-edit-description'
@@ -378,41 +412,48 @@ export default function Supplier () {
         closeAfterTransition
       >
         <Fade in={openEdit}>
-          <Box sx={style}>
+          <Box
+            sx={style}
+            component='form'
+            onSubmit={e => {
+              e.preventDefault()
+              handleUpdateSupplier()
+            }}
+          >
+            {' '}
             <Stack
               className='template-add-iventory'
               direction={'column'}
               alignItems={'center'}
+              spacing={2}
             >
               <Typography
+                id='transition-modal-edit-title'
                 sx={{
                   textAlign: 'center',
                   fontWeight: 'bold',
                   fontSize: '20px',
-                  width: '100%'
+                  width: '100%',
+                  mb: 2
                 }}
-                variant='p'
+                variant='h6'
+                component='h2'
               >
                 Cập nhật nhà cung cấp
               </Typography>
-              <Stack
-                sx={{ marginTop: '1rem', marginBottom: '1rem' }}
-                className='body-infor'
-                flexWrap='wrap'
-                direction={'row'}
-                alignItems={'center'}
-              >
+              <TextField
+                sx={{ width: '100%' }}
+                value={formData?.nameSupplier || ''}
+                onChange={handleChange}
+                name='nameSupplier'
+                label='Tên nhà cung cấp'
+                variant='outlined'
+                required
+                autoFocus
+              />
+              <Stack direction='row' spacing={2} sx={{ width: '100%' }}>
                 <TextField
-                  sx={{ margin: '1%', width: '100%' }}
-                  value={formData?.nameSupplier || ''}
-                  onChange={handleChange}
-                  name='nameSupplier'
-                  label='Tên nhà cung cấp'
-                  variant='outlined'
-                  required
-                />
-                <TextField
-                  sx={{ margin: '1%', width: '48%' }}
+                  sx={{ width: '50%' }}
                   value={formData?.email || ''}
                   onChange={handleChange}
                   name='email'
@@ -421,35 +462,44 @@ export default function Supplier () {
                   type='email'
                 />
                 <TextField
-                  sx={{ margin: '1%', width: '48%' }}
+                  sx={{ width: '50%' }}
                   value={formData?.phoneNumber || ''}
                   onChange={handleChange}
                   name='phoneNumber'
                   label='Số điện thoại'
                   variant='outlined'
                 />
-                <TextField
-                  sx={{ margin: '1%', width: '100%' }}
-                  value={formData?.address || ''}
-                  onChange={handleChange}
-                  name='address'
-                  label='Địa chỉ'
-                  variant='outlined'
-                />
               </Stack>
-              <Button
-                className='btn-setting'
-                onClick={handleUpdateSupplier}
-                sx={{
-                  color: 'white',
-                  height: '50px',
-                  backgroundColor: '#243642',
-                  '&:hover': { backgroundColor: '#1c2b35' }
-                }}
-                variant='contained'
+              <TextField
+                sx={{ width: '100%' }}
+                value={formData?.address || ''}
+                onChange={handleChange}
+                name='address'
+                label='Địa chỉ'
+                variant='outlined'
+                multiline
+                rows={3}
+              />
+              <Stack
+                direction='row'
+                spacing={2}
+                justifyContent='flex-end'
+                sx={{ width: '100%', mt: 2 }}
               >
-                Cập nhật
-              </Button>
+                <Button onClick={handleCloseEdit}>Hủy</Button>
+                <Button
+                  type='submit'
+                  className='btn-setting'
+                  sx={{
+                    color: 'white',
+                    backgroundColor: '#243642',
+                    '&:hover': { backgroundColor: '#1c2b35' }
+                  }}
+                  variant='contained'
+                >
+                  Cập nhật
+                </Button>
+              </Stack>
             </Stack>
           </Box>
         </Fade>
