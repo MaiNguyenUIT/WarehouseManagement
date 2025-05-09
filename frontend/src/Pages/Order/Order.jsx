@@ -88,7 +88,7 @@ const OrderPage = () => {
           orderCode: order.orderCode,
           address: order.delivery_Address,
           orderItemCodes: order.orderItem_code || [],
-          state: order.stateEnum,
+          state: order.orderState,
           date: formattedDate, // Lưu lại ngày giờ đã định dạng
           value: order.orderPrice
         }
