@@ -385,7 +385,7 @@ export default class ApiService {
     //     }
     // }
 
-    static async getAllCategorys() {
+    static async getAllCategories() {
         try {
             const response = await axios.get(`${this.BASE_URL}/api/category`, {
                 headers: this.getHeader()
