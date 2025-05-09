@@ -125,14 +125,14 @@ public class OrderService implements com.example.backend.service.OrderService {
 
         // Kiểm tra trạng thái đơn hàng (ORDER_STATE) - Có thể thêm vào đây nếu muốn
         // Ví dụ: không cho xóa đơn hàng đã giao hoặc đang giao
-        ORDER_STATE currentStateEnum = order.getStateEnum();
-        if (currentStateEnum == ORDER_STATE.DELIVERED || currentStateEnum == ORDER_STATE.ON_GOING) {
-            throw new Exception("Cannot delete an order that is " + currentStateEnum);
+        ORDER_STATE currentOrderState = order.getOrderState();
+        if (currentOrderState == ORDER_STATE.DELIVERED || currentOrderState == ORDER_STATE.ON_GOING) {
+            throw new Exception("Cannot delete an order that is " + currentOrderState);
         }
 
         // Nếu đơn hàng chưa bị hủy, cần cập nhật lại trạng thái OrderItem thành
         // OUT_ORDER
-        if (currentStateEnum != ORDER_STATE.CANCELLED) {
+        if (currentOrderState != ORDER_STATE.CANCELLED) {
             for (String i : order.getOrderItem_code()) {
                 OrderItem item = orderItemRepository.findByorderItemCode(i);
                 if (item != null && item.getOrderItemState() == ORDER_ITEM_STATE.IN_ORDER) {
@@ -157,10 +157,10 @@ public class OrderService implements com.example.backend.service.OrderService {
                 .map(this::initializeOrderState) // Khởi tạo state
                 .orElseThrow(() -> new Exception("Order not found with id: " + orderId));
 
-        ORDER_STATE targetStateEnum = stateRequest.getState(); // Lấy state enum từ request
+        ORDER_STATE targetOrderState = stateRequest.getState(); // Lấy state enum từ request
 
         // Gọi phương thức chuyển đổi tương ứng trên đối tượng Order
-        switch (targetStateEnum) {
+        switch (targetOrderState) {
             case CONFIRMED:
                 existingOrder.confirmOrder();
                 break;
@@ -180,7 +180,7 @@ public class OrderService implements com.example.backend.service.OrderService {
                 // Thường không có hành động trực tiếp để quay về PENDING
                 throw new Exception("Cannot manually revert state to PENDING.");
             default:
-                throw new Exception("Unsupported target state: " + targetStateEnum);
+                throw new Exception("Unsupported target state: " + targetOrderState);
         }
 
         return orderRepository.save(existingOrder);
@@ -188,7 +188,7 @@ public class OrderService implements com.example.backend.service.OrderService {
 
     @Override
     public List<Order> getOrderByState(ORDER_STATE orderState) {
-        return initializeOrderStates(orderRepository.findByStateEnum(orderState));
+        return initializeOrderStates(orderRepository.findByOrderState(orderState));
     }
 
     @Override
@@ -199,11 +199,11 @@ public class OrderService implements com.example.backend.service.OrderService {
     @Override
     public OrderQuantity getOrderQuantity() {
 
-        long on_pending = orderRepository.countByStateEnum(ORDER_STATE.PENDING);
-        long confirmed = orderRepository.countByStateEnum(ORDER_STATE.CONFIRMED);
-        long delivered = orderRepository.countByStateEnum(ORDER_STATE.DELIVERED);
-        long on_going = orderRepository.countByStateEnum(ORDER_STATE.ON_GOING);
-        long cancel = orderRepository.countByStateEnum(ORDER_STATE.CANCELLED);
+        long on_pending = orderRepository.countByOrderState(ORDER_STATE.PENDING);
+        long confirmed = orderRepository.countByOrderState(ORDER_STATE.CONFIRMED);
+        long delivered = orderRepository.countByOrderState(ORDER_STATE.DELIVERED);
+        long on_going = orderRepository.countByOrderState(ORDER_STATE.ON_GOING);
+        long cancel = orderRepository.countByOrderState(ORDER_STATE.CANCELLED);
 
         OrderQuantity orderQuantity = new OrderQuantity();
         orderQuantity.setCancelQuantity((int) cancel);
@@ -239,11 +239,11 @@ public class OrderService implements com.example.backend.service.OrderService {
 
         List<Order> ordersInMonth = orderRepository.findOrdersByMonthAndYear(month, year);
 
-        long on_pending = ordersInMonth.stream().filter(o -> o.getStateEnum() == ORDER_STATE.PENDING).count();
-        long confirmed = ordersInMonth.stream().filter(o -> o.getStateEnum() == ORDER_STATE.CONFIRMED).count();
-        long delivered = ordersInMonth.stream().filter(o -> o.getStateEnum() == ORDER_STATE.DELIVERED).count();
-        long on_going = ordersInMonth.stream().filter(o -> o.getStateEnum() == ORDER_STATE.ON_GOING).count();
-        long cancel = ordersInMonth.stream().filter(o -> o.getStateEnum() == ORDER_STATE.CANCELLED).count();
+        long on_pending = ordersInMonth.stream().filter(o -> o.getOrderState() == ORDER_STATE.PENDING).count();
+        long confirmed = ordersInMonth.stream().filter(o -> o.getOrderState() == ORDER_STATE.CONFIRMED).count();
+        long delivered = ordersInMonth.stream().filter(o -> o.getOrderState() == ORDER_STATE.DELIVERED).count();
+        long on_going = ordersInMonth.stream().filter(o -> o.getOrderState() == ORDER_STATE.ON_GOING).count();
+        long cancel = ordersInMonth.stream().filter(o -> o.getOrderState() == ORDER_STATE.CANCELLED).count();
 
         OrderQuantity orderQuantity = new OrderQuantity();
         orderQuantity.setCancelQuantity((int) cancel);

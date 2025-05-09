@@ -70,10 +70,10 @@ public class ExportService implements com.example.backend.service.ExportService 
 
             // *** VALIDATION QUAN TRỌNG ***
             // Chỉ cho phép thêm Order đã được xác nhận (CONFIRMED) vào phiếu xuất
-            if (order.getStateEnum() != ORDER_STATE.CONFIRMED) {
+            if (order.getOrderState() != ORDER_STATE.CONFIRMED) {
                 throw new IllegalArgumentException("Đơn hàng " + orderCode
                         + " phải ở trạng thái CONFIRMED mới được xuất kho. Trạng thái hiện tại: "
-                        + order.getStateEnum());
+                        + order.getOrderState());
             }
 
             // Kiểm tra xem đơn hàng đã ở trong phiếu xuất khác chưa?
@@ -159,9 +159,9 @@ public class ExportService implements com.example.backend.service.ExportService 
             initializeOrderState(order); // Khởi tạo state để kiểm tra
 
             // Validation tương tự như khi tạo mới
-            if (order.getStateEnum() != ORDER_STATE.CONFIRMED) {
+            if (order.getOrderState() != ORDER_STATE.CONFIRMED) {
                 throw new IllegalArgumentException("Đơn hàng " + orderCodeToAdd
-                        + " phải ở trạng thái CONFIRMED. Trạng thái hiện tại: " + order.getStateEnum());
+                        + " phải ở trạng thái CONFIRMED. Trạng thái hiện tại: " + order.getOrderState());
             }
             if (order.getOrderStatus() == ORDER_STATUS.IN_EXPORT) {
                 throw new IllegalArgumentException("Đơn hàng " + orderCodeToAdd + " đã thuộc một phiếu xuất kho khác.");
@@ -248,7 +248,7 @@ public class ExportService implements com.example.backend.service.ExportService 
                     try {
                         // Gọi phương thức shipOrder() để chuyển trạng thái Order sang ON_GOING
                         // Chỉ gọi nếu Order đang ở trạng thái CONFIRMED
-                        if (order.getStateEnum() == ORDER_STATE.CONFIRMED) {
+                        if (order.getOrderState() == ORDER_STATE.CONFIRMED) {
                             order.shipOrder(); // Gọi phương thức của State Pattern
                             orderRepository.save(order); // Lưu lại Order sau khi thay đổi state
                         } else {
@@ -256,7 +256,7 @@ public class ExportService implements com.example.backend.service.ExportService 
                             // xuất bắt đầu giao
                             System.err.println("Cảnh báo: Đơn hàng " + orderCode
                                     + " không ở trạng thái CONFIRMED khi phiếu xuất " + exportId
-                                    + " chuyển sang ON_GOING. Trạng thái hiện tại: " + order.getStateEnum());
+                                    + " chuyển sang ON_GOING. Trạng thái hiện tại: " + order.getOrderState());
                         }
                     } catch (Exception e) {
                         // Xử lý lỗi nếu không chuyển được trạng thái Order

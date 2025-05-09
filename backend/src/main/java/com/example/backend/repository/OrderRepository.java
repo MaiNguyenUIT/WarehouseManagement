@@ -23,14 +23,14 @@ public interface OrderRepository extends MongoRepository<Order, String> {
     boolean existsByOrderCode(String orderCode);
 
     // Thêm phương thức tìm kiếm theo trạng thái Enum mới (stateEnum)
-    List<Order> findByStateEnum(ORDER_STATE stateEnum);
+    List<Order> findByOrderState(ORDER_STATE orderState);
 
     // Thêm phương thức tìm kiếm theo trạng thái xuất kho (orderStatus)
     List<Order> findByOrderStatus(ORDER_STATUS orderStatus);
 
     // Thêm phương thức đếm số lượng đơn hàng theo trạng thái Enum (hữu ích cho
     // thống kê)
-    long countByStateEnum(ORDER_STATE stateEnum);
+    long countByOrderState(ORDER_STATE orderState);
 
     // Giữ lại phương thức tìm theo tháng/năm đã có
     @Query("{ '$expr': { '$and': [ { '$eq': [ { '$month': '$created_at' }, ?0 ] }, { '$eq': [ { '$year': '$created_at' }, ?1 ] } ] } }")

@@ -26,7 +26,7 @@ public class Order {
     private int orderItem_quantity;
 
     @Field("order_state") // Đổi tên field lưu enum trong DB nếu muốn
-    private ORDER_STATE stateEnum = ORDER_STATE.PENDING; // <-- Trường lưu trạng thái Enum vào DB
+    private ORDER_STATE orderState = ORDER_STATE.PENDING; // <-- Trường lưu trạng thái Enum vào DB
 
     @Transient // <-- Không lưu trường này vào DB
     private OrderState currentState; // <-- Trường giữ đối tượng State hiện tại
@@ -43,14 +43,14 @@ public class Order {
     // Phương thức để thiết lập State hiện tại (quan trọng khi tải từ DB)
     public void setCurrentState(OrderState state) {
         this.currentState = state;
-        this.stateEnum = state.getStateEnum(); // Đồng bộ stateEnum
+        this.orderState = state.getStateEnum(); // Đồng bộ stateEnum
     }
 
     // Lấy State hiện tại (khởi tạo nếu cần)
     public OrderState getCurrentState() {
         if (currentState == null) {
             // Khởi tạo state từ stateEnum khi đối tượng được tải lần đầu
-            this.currentState = OrderStateFactory.getState(this.stateEnum);
+            this.currentState = OrderStateFactory.getState(this.orderState);
         }
         return currentState;
     }

@@ -23,7 +23,8 @@ public class CategoryController {
     private UserService userService;
 
     @GetMapping("")
-    public ResponseEntity<ApiResponse<List<Category>>> getAllCategory(@RequestHeader("Authorization") String jwt) throws Exception{
+    public ResponseEntity<ApiResponse<List<Category>>> getAllCategory(@RequestHeader("Authorization") String jwt)
+            throws Exception {
         User user = userService.findUserByJwtToken(jwt);
         ApiResponse<List<Category>> response = new ApiResponse.Builder<List<Category>>()
                 .data(categoryService.getAllCategory())
@@ -34,7 +35,7 @@ public class CategoryController {
     }
 
     @GetMapping("/getCategoryName")
-    public ResponseEntity<List<String>> getAllCategoryName(@RequestHeader("Authorization") String jwt)
+    public ResponseEntity<ApiResponse<List<String>>> getAllCategoryName(@RequestHeader("Authorization") String jwt)
             throws Exception {
         User user = userService.findUserByJwtToken(jwt);
         ApiResponse<List<String>> response = new ApiResponse.Builder<List<String>>()
@@ -46,7 +47,7 @@ public class CategoryController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Optional<Category>> getCategoryById(@RequestHeader("Authorization") String jwt,
+    public ResponseEntity<ApiResponse<Optional<Category>>> getCategoryById(@RequestHeader("Authorization") String jwt,
             @PathVariable String id) throws Exception {
         User user = userService.findUserByJwtToken(jwt);
         ApiResponse<Optional<Category>> response = new ApiResponse.Builder<Optional<Category>>()

@@ -1,18 +1,19 @@
 package com.example.backend.serviceImpl;
 
-import com.example.backend.ENUM.ORDER_ITEM_STATE;
-import com.example.backend.ENUM.PRODUCT_STATUS;
-import com.example.backend.model.*;
+import com.example.backend.model.OrderItem;
 import com.example.backend.repository.InventoryRepository;
 import com.example.backend.repository.OrderItemRepository;
 import com.example.backend.repository.ProductRepository;
 import com.example.backend.repository.ShelfRepository;
-import com.example.backend.service.ProductService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import com.example.backend.pattern.IteratorPattern.OrderItemIterator;
+import com.example.backend.serviceImpl.orderitem.OrderItemProcessingContext;
+import com.example.backend.serviceImpl.orderitem.handler.*;
 import com.example.backend.pattern.IteratorPattern.OrderItemCollection;
 import com.example.backend.pattern.IteratorPattern.OrderItemFilter;
+import com.example.backend.pattern.IteratorPattern.OrderItemIterator;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,188 +21,138 @@ import java.util.Optional;
 
 @Service
 public class OrderItemService implements com.example.backend.service.OrderItemService {
-    @Autowired
-    private OrderItemRepository orderItemRepository;
+
+    private final OrderItemRepository orderItemRepository;
+    private final ProductRepository productRepository;
+    private final ShelfRepository shelfRepository;
+    private final InventoryRepository inventoryRepository;
+
+    // Handlers for Chain of Responsibility
+    private final OrderItemCodeExistenceHandler orderItemCodeExistenceHandler;
+    private final ProductValidationHandler productValidationHandler;
+    private final PriceCalculationHandler priceCalculationHandler;
+    private final InventoryUpdateHandler inventoryUpdateHandler; // Dùng cho create/update
+    private final OrderItemSetupHandler orderItemSetupHandler;
+    private final OrderItemPersistenceHandler orderItemPersistenceHandler;
+
+    // Handlers for Deletion
+    private final OrderItemFetchHandler orderItemFetchHandler;
+    private final InventoryReversalHandler inventoryReversalHandler; // Dùng cho delete
+    private final OrderItemDeletionHandler orderItemDeletionHandler;
+
+    private OrderItemProcessingHandler chainHeadForCreate;
+    private OrderItemProcessingHandler chainHeadForUpdate;
+    private OrderItemProcessingHandler chainHeadForDelete;
 
     @Autowired
-    private ProductService productService;
+    public OrderItemService(OrderItemRepository orderItemRepository,
+            ProductRepository productRepository,
+            ShelfRepository shelfRepository,
+            InventoryRepository inventoryRepository,
+            // Create/Update Handlers
+            OrderItemCodeExistenceHandler oiceHandler,
+            ProductValidationHandler pvHandler,
+            PriceCalculationHandler pcHandler,
+            InventoryUpdateHandler iuHandler,
+            OrderItemSetupHandler oisHandler,
+            OrderItemPersistenceHandler oipHandler,
+            // Delete Handlers
+            OrderItemFetchHandler oifHandler,
+            InventoryReversalHandler irHandler,
+            OrderItemDeletionHandler oidHandler) {
+        this.orderItemRepository = orderItemRepository;
+        this.productRepository = productRepository;
+        this.shelfRepository = shelfRepository;
+        this.inventoryRepository = inventoryRepository;
 
-    @Autowired
-    private ProductRepository productRepository;
+        // Inject create/update handlers
+        this.orderItemCodeExistenceHandler = oiceHandler;
+        this.productValidationHandler = pvHandler;
+        this.priceCalculationHandler = pcHandler;
+        this.inventoryUpdateHandler = iuHandler;
+        this.orderItemSetupHandler = oisHandler;
+        this.orderItemPersistenceHandler = oipHandler;
 
-    @Autowired
-    private ShelfRepository shelfRepository;
+        // Inject delete handlers
+        this.orderItemFetchHandler = oifHandler;
+        this.inventoryReversalHandler = irHandler;
+        this.orderItemDeletionHandler = oidHandler;
 
-    @Autowired
-    private InventoryRepository inventoryRepository;
+        buildChains();
+    }
 
-    @Override
-    public OrderItem createOrderItem(OrderItem orderItem) throws Exception {
-        OrderItem existOrderItemCode = orderItemRepository.findByorderItemCode(orderItem.getOrderItemCode());
-        if(existOrderItemCode != null){
-            throw new Exception("OrderItem code is already exist");
-        }
+    private void buildChains() {
+        // Build chain for CREATE operation
+        orderItemCodeExistenceHandler.setNextHandler(productValidationHandler);
+        productValidationHandler.setNextHandler(priceCalculationHandler);
+        priceCalculationHandler.setNextHandler(inventoryUpdateHandler); // Sử dụng InventoryUpdateHandler
+        inventoryUpdateHandler.setNextHandler(orderItemSetupHandler);
+        orderItemSetupHandler.setNextHandler(orderItemPersistenceHandler);
+        chainHeadForCreate = orderItemCodeExistenceHandler;
 
-        Optional<Product> existProduct = productService.getProductById(orderItem.getProduct_id());
-        if(existProduct.isEmpty()){
-            throw new Exception("Product not found");
-        }
+        // Build chain for UPDATE operation
+        ProductValidationHandler updateProductValidationHandler = new ProductValidationHandler(productRepository);
+        PriceCalculationHandler updatePriceCalculationHandler = new PriceCalculationHandler();
+        // InventoryUpdateHandler cho update có thể cần logic phức tạp hơn để xử lý hoàn
+        // trả số lượng cũ
+        // Sử dụng cùng instance inventoryUpdateHandler và nó sẽ kiểm tra
+        // context.isUpdateOperation()
+        OrderItemSetupHandler updateOrderItemSetupHandler = new OrderItemSetupHandler();
+        OrderItemPersistenceHandler updateOrderItemPersistenceHandler = new OrderItemPersistenceHandler(
+                orderItemRepository);
 
-        if(existProduct.get().getInventory_quantity() < orderItem.getQuantity()){
-            throw new Exception("Product quantity in inventory is not enough");
-        }
+        updateProductValidationHandler.setNextHandler(updatePriceCalculationHandler);
+        updatePriceCalculationHandler.setNextHandler(inventoryUpdateHandler); // Sử dụng lại instance này
+        inventoryUpdateHandler.setNextHandler(updateOrderItemSetupHandler);
+        updateOrderItemSetupHandler.setNextHandler(updateOrderItemPersistenceHandler);
+        chainHeadForUpdate = updateProductValidationHandler;
 
-        OrderItem newOrderItem = new OrderItem();
-        newOrderItem.setQuantity(orderItem.getQuantity());
-        newOrderItem.setProduct_id(orderItem.getProduct_id());
-        newOrderItem.setOrderItemCode(orderItem.getOrderItemCode());
-        newOrderItem.setShelfCode(orderItem.getShelfCode());
-
-        int totalPrice = orderItem.getQuantity()*existProduct.get().getPrice();
-        Optional<Inventory> inventory = inventoryRepository.findById(shelfRepository.findByshelfCode(orderItem.getShelfCode().get(0)).getInventoryid());
-        //check if product quantity in inventory equal with orderItem
-        if(existProduct.get().getInventory_quantity() == orderItem.getQuantity()){
-            existProduct.get().setInventory_quantity(0);
-            existProduct.get().setProductStatus(PRODUCT_STATUS.OUT_STOCK);
-            int quantity = orderItem.getQuantity();
-
-            //update shelf quantity
-            for(String shelfCode : orderItem.getShelfCode()){
-                Shelf shelf = shelfRepository.findByshelfCode(shelfCode);
-                if(quantity >= shelf.getQuantity()){
-                    quantity -= shelf.getQuantity();
-                    shelfRepository.deleteById(shelf.getId());
-                }
-
-                if(quantity < shelf.getQuantity()){
-                    shelf.setQuantity(shelf.getQuantity() - quantity);
-                    quantity = 0;
-                    shelfRepository.save(shelf);
-                }
-            }
-
-            int totalQuantity = 0;
-            for (Shelf shelf : shelfRepository.findByinventoryid(inventory.get().getId())){
-                totalQuantity += shelf.getQuantity();
-            }
-            inventory.get().setQuantity(totalQuantity);
-            inventoryRepository.save(inventory.get());
-            productRepository.save(existProduct.get());
-
-        } else {
-            existProduct.get().setInventory_quantity(existProduct.get().getInventory_quantity() - orderItem.getQuantity());
-            int quantity = orderItem.getQuantity();
-            for(String shelfCode : orderItem.getShelfCode()){
-                Shelf shelf = shelfRepository.findByshelfCode(shelfCode);
-                if(quantity >= shelf.getQuantity()){
-                    quantity -= shelf.getQuantity();
-                    shelf.setQuantity(0);
-                    shelf.setProductId(null);
-                    shelfRepository.deleteById(shelf.getId());
-                }
-
-                if(quantity < shelf.getQuantity()){
-                    shelf.setQuantity(shelf.getQuantity() - quantity);
-                    quantity = 0;
-                    shelfRepository.save(shelf);
-                }
-            }
-
-            int totalQuantity = 0;
-            for (Shelf shelf : shelfRepository.findByinventoryid(inventory.get().getId())){
-                totalQuantity += shelf.getQuantity();
-            }
-            inventory.get().setQuantity(totalQuantity);
-            inventoryRepository.save(inventory.get());
-            productRepository.save(existProduct.get());
-        }
-        newOrderItem.setTotalPrice(totalPrice);
-        return orderItemRepository.save(newOrderItem);
+        // Build chain for DELETE operation
+        orderItemFetchHandler.setNextHandler(inventoryReversalHandler);
+        inventoryReversalHandler.setNextHandler(orderItemDeletionHandler);
+        // orderItemDeletionHandler.setNextHandler(null); // Handler cuối cùng
+        chainHeadForDelete = orderItemFetchHandler;
     }
 
     @Override
-    public OrderItem updateOrderItem(OrderItem orderItem, String id) throws Exception {
-        OrderItem existOrderItem = orderItemRepository.findById(id).orElse(null);
-        if(existOrderItem == null){
-            throw new Exception("OrderItem not found");
-        }
-
-        Optional<Product> existProduct = productService.getProductById(orderItem.getProduct_id());
-        if(existProduct.isEmpty()){
-            throw new Exception("Product not found");
-        }
-
-        if(existProduct.get().getInventory_quantity() < orderItem.getQuantity()){
-            throw new Exception("Product quantity in inventory is not enough");
-        }
-
-        existOrderItem.setQuantity(orderItem.getQuantity());
-        int totalPrice = orderItem.getQuantity()*existProduct.get().getPrice();
-        Optional<Inventory> inventory = inventoryRepository.findById(shelfRepository.findByshelfCode(orderItem.getShelfCode().get(0)).getInventoryid());
-        //check if product quantity in inventory equal with orderItem
-        if(existProduct.get().getInventory_quantity() == orderItem.getQuantity()){
-            existProduct.get().setInventory_quantity(0);
-            existProduct.get().setProductStatus(PRODUCT_STATUS.OUT_STOCK);
-            int quantity = orderItem.getQuantity();
-            for(String shelfCode : orderItem.getShelfCode()){
-                Shelf shelf = shelfRepository.findByshelfCode(shelfCode);
-                if(quantity > shelf.getQuantity()){
-                    quantity -= shelf.getQuantity();
-                    shelf.setQuantity(0);
-                    shelfRepository.save(shelf);
-                    shelfRepository.deleteById(shelf.getId());
-                }
-
-                if(quantity <= shelf.getQuantity()){
-                    shelf.setQuantity(shelf.getQuantity() - quantity);
-                    quantity = 0;
-                    shelfRepository.save(shelf);
-                }
-            }
-
-            int totalQuantity = 0;
-            for (Shelf shelf : shelfRepository.findByinventoryid(inventory.get().getId())){
-                totalQuantity += shelf.getQuantity();
-            }
-            inventory.get().setQuantity(totalQuantity);
-            inventoryRepository.save(inventory.get());
-            productRepository.save(existProduct.get());
-            productRepository.save(existProduct.get());
-
-        } else {
-            existProduct.get().setInventory_quantity(existProduct.get().getInventory_quantity() - orderItem.getQuantity());
-            int quantity = orderItem.getQuantity();
-            for(String shelfCode : orderItem.getShelfCode()){
-                Shelf shelf = shelfRepository.findByshelfCode(shelfCode);
-                if(quantity > shelf.getQuantity()){
-                    quantity -= shelf.getQuantity();
-                    shelf.setQuantity(0);
-                    shelfRepository.save(shelf);
-                    shelfRepository.deleteById(shelf.getId());
-                }
-
-                if(quantity <= shelf.getQuantity()){
-                    shelf.setQuantity(shelf.getQuantity() - quantity);
-                    quantity = 0;
-                    shelfRepository.save(shelf);
-                }
-            }
-            int totalQuantity = 0;
-            for (Shelf shelf : shelfRepository.findByinventoryid(inventory.get().getId())){
-                totalQuantity += shelf.getQuantity();
-            }
-            inventory.get().setQuantity(totalQuantity);
-            inventoryRepository.save(inventory.get());
-            productRepository.save(existProduct.get());
-            productService.updateProduct(existProduct.get().getId(), existProduct.get());
-        }
-        existOrderItem.setTotalPrice(totalPrice);
-        return orderItemRepository.save(existOrderItem);
+    @Transactional
+    public OrderItem createOrderItem(OrderItem orderItemInput) throws Exception {
+        OrderItemProcessingContext context = new OrderItemProcessingContext(orderItemInput, false);
+        chainHeadForCreate.process(context);
+        return context.getOrderItemResult();
     }
 
     @Override
-    public void deleteOrderItem(String id) {
-        orderItemRepository.deleteById(id);
+    @Transactional
+    public OrderItem updateOrderItem(OrderItem orderItemInput, String id) throws Exception {
+        OrderItem existingOrderItem = orderItemRepository.findById(id)
+                .orElseThrow(() -> new Exception("OrderItem not found with id: " + id + " for update."));
+
+        if (!existingOrderItem.getOrderItemCode().equals(orderItemInput.getOrderItemCode())) {
+            OrderItem existOrderItemCode = orderItemRepository.findByorderItemCode(orderItemInput.getOrderItemCode());
+            if (existOrderItemCode != null && !existOrderItemCode.getOrderItem_id().equals(id)) {
+                throw new Exception(
+                        "New OrderItem code '" + orderItemInput.getOrderItemCode() + "' is already in use.");
+            }
+        }
+
+        OrderItemProcessingContext context = new OrderItemProcessingContext(orderItemInput, existingOrderItem, true);
+        chainHeadForUpdate.process(context);
+        return context.getOrderItemResult();
+    }
+
+    @Override
+    @Transactional
+    public void deleteOrderItem(String id) throws Exception {
+        // Tạo một đối tượng OrderItem giả để truyền ID vào context,
+        // OrderItemFetchHandler sẽ fetch đối tượng đầy đủ.
+        OrderItem placeholderOrderItemWithId = new OrderItem();
+        placeholderOrderItemWithId.setOrderItem_id(id);
+
+        OrderItemProcessingContext context = new OrderItemProcessingContext(placeholderOrderItemWithId, true);
+        context.setOrderItemResult(null); // Để OrderItemFetchHandler biết cần phải fetch
+
+        chainHeadForDelete.process(context);
     }
 
     @Override
@@ -227,7 +178,6 @@ public class OrderItemService implements com.example.backend.service.OrderItemSe
                 codes.add(item.getOrderItemCode());
             }
         }
-
         return codes;
     }
 
