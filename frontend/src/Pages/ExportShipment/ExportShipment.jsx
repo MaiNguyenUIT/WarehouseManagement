@@ -1,25 +1,13 @@
-import React, { useState, useEffect } from "react";
+
+  import React, { useState, useEffect } from "react";
 import {
-  Container,
-  Stack,
-  Button,
-  Typography,
-  IconButton,
-  Box,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Paper,
-  TableContainer,
-  TextField,
-  TablePagination,
-  Snackbar, Alert,Dialog, DialogActions, DialogContent, DialogTitle
+  Container, Stack, Button, Typography, IconButton, Box, Table, TableBody,
+  TableCell, TableHead, TableRow, Paper, TableContainer, TextField, TablePagination,
+  Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogTitle
 } from "@mui/material";
 import { Add, Edit, Delete, ExpandMore, ExpandLess } from "@mui/icons-material";
 import ModalExport from "../../Hooks/ModalExport/ModalExport.jsx";
-import ApiService from "../../Service/ApiService";
+import ExportManagerFacade from "../../Service/ExportManagerFacade"; // Adjust the import path
 import PrimarySearchAppBar from "../../Component/AppBar/AppBar.jsx";
 
 const ExportShipment = () => {
@@ -27,17 +15,16 @@ const ExportShipment = () => {
   const [exportShipments, setExportShipments] = useState([]);
   const [filteredExportShipments, setFilteredExportShipments] = useState([]);
   const [expandedShipmentId, setExpandedShipmentId] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(""); // Selected date for filtering
-  const [expandedShipmentOrders, setExpandedShipmentOrders] = useState({}); // Store order details for each shipment
-  const [editingShipment, setEditingShipment] = useState(null); // Store the shipment being edited
-  const [editingOrders, setEditingOrders] = useState([]); // Store orders related to the shipment
+  const [selectedDate, setSelectedDate] = useState("");
+  const [expandedShipmentOrders, setExpandedShipmentOrders] = useState({});
+  const [editingShipment, setEditingShipment] = useState(null);
+  const [editingOrders, setEditingOrders] = useState([]);
   const [notification, setNotification] = useState(null);
-
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [shipmentToDelete, setShipmentToDelete] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
+  const [shipmentToDelete, setShipmentToDelete] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
   };
@@ -49,32 +36,23 @@ const ExportShipment = () => {
 
   const fetchExportShipments = async () => {
     try {
-      const exportResponse = await ApiService.getAllExport();
-      console.log("Response data from API:", exportResponse);
-      if (Array.isArray(exportResponse)) {
-        setExportShipments(exportResponse);
-        setFilteredExportShipments(exportResponse); // Set initial filtered data
-      } else {
-        console.error("Data is not an array");
-        setExportShipments([]);
-        setFilteredExportShipments([]);
-      }
+      const shipments = await ExportManagerFacade.fetchShipments();
+      setExportShipments(shipments);
+      setFilteredExportShipments(shipments);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching shipments:", error.message);
       setExportShipments([]);
       setFilteredExportShipments([]);
+      setNotification({ type: "error", message: "Failed to fetch shipments" });
     }
   };
-  useEffect(() => {
-  
 
+  useEffect(() => {
     fetchExportShipments();
   }, []);
 
-  // Filter shipments by creation date
   const handleFilter = () => {
     if (!selectedDate) {
-      // If no date selected, show all
       setFilteredExportShipments(exportShipments);
       return;
     }
@@ -91,93 +69,74 @@ const ExportShipment = () => {
   const handleOpenModal = (shipment = null) => {
     if (shipment) {
       setEditingShipment({ ...shipment });
-      // Fetch orders associated with the shipment when editing
-      setEditingOrders(shipment.orders || []); // Set orders related to this shipment
+      setEditingOrders(shipment.orders || []);
     } else {
-      setEditingShipment(null); // Reset editing shipment for new export
-      setEditingOrders([]); // Reset orders for new export
+      setEditingShipment(null);
+      setEditingOrders([]);
     }
     setOpenModal(true);
   };
 
   const handleCloseModal = () => {
     setOpenModal(false);
-    setEditingShipment(null); // Reset editing shipment when closing the modal
-    setEditingOrders([]); // Reset orders when closing the modal
+    setEditingShipment(null);
+    setEditingOrders([]);
   };
-  const handleModalSubmit = (isSuccess) => {
-    // Kiểm tra lại isSuccess để xác định là thành công hay thất bại
-    if (isSuccess) {
-      setNotification({
-        type: "success",
-        message: "Cập nhật thành công!"
-      });
-    } else {
-      setNotification({
-        type: "error",
-        message: "Cập nhật thất bại. Vui lòng thử lại."
-      });
+
+  const handleModalSubmit = async (shipmentData, isEditing) => {
+    try {
+      let result;
+      if (isEditing) {
+        result = await ExportManagerFacade.updateAndRefresh(editingShipment.id, shipmentData);
+      } else {
+        result = await ExportManagerFacade.addAndRefresh(shipmentData);
+      }
+      setExportShipments(result.updatedShipments);
+      setFilteredExportShipments(result.updatedShipments);
+      setNotification({ type: "success", message: isEditing ? "Shipment updated successfully!" : "Shipment added successfully!" });
+      setOpenModal(false);
+    } catch (error) {
+      console.error("Error submitting shipment:", error.message);
+      setNotification({ type: "error", message: `Failed to ${isEditing ? "update" : "add"} shipment` });
     }
-  
-    // Đóng modal và làm mới dữ liệu
-    setOpenModal(false);
-    fetchExportShipments(); // Gọi lại API để lấy dữ liệu mới nhất
   };
-  
-  
-  
-  // Function to fetch order details by order code
+
   const fetchOrderDetails = async (orderCode) => {
     try {
-      const orderDetails = await ApiService.getOrderByOrderCode(orderCode);
-      // Store the fetched order details in the expandedShipmentOrders state
+      const orderDetails = await ExportManagerFacade.fetchOrderDetails(orderCode);
       setExpandedShipmentOrders((prev) => ({
         ...prev,
-        [orderCode]: orderDetails.data,
+        [orderCode]: orderDetails,
       }));
     } catch (error) {
-      console.error("Error fetching order details:", error);
+      console.error("Error fetching order details:", error.message);
+      setNotification({ type: "error", message: `Failed to fetch order details for ${orderCode}` });
     }
   };
 
   const handleDeleteShipment = (shipmentId) => {
-    // Set shipmentIdToDelete cho đối tượng cần xóa
     setShipmentToDelete(shipmentId);
-    setOpenDialog(true); // Mở dialog xác nhận xóa
+    setOpenDialog(true);
   };
-  
+
   const handleConfirmDelete = async () => {
     if (!shipmentToDelete) return;
-  
     try {
-      // Gọi API xóa xuất hàng
-      await ApiService.deleteExport(shipmentToDelete);
-      // Cập nhật lại danh sách xuất hàng
-      setExportShipments((prev) =>
-        prev.filter((shipment) => shipment.id !== shipmentToDelete)
-      );
-      // Hiển thị thông báo thành công
-      setNotification({
-        type: "success",
-        message: "Xuất hàng đã được xóa thành công!",
-      });
-      fetchExportShipments();
-      setOpenDialog(false); // Đóng Dialog sau khi xóa thành công
+      const { updatedShipments } = await ExportManagerFacade.deleteAndRefresh(shipmentToDelete);
+      setExportShipments(updatedShipments);
+      setFilteredExportShipments(updatedShipments);
+      setNotification({ type: "success", message: "Shipment deleted successfully!" });
+      setOpenDialog(false);
     } catch (error) {
-      console.error("Error deleting shipment:", error);
-      // Hiển thị thông báo lỗi nếu có lỗi
-      setNotification({
-        type: "error",
-        message: "Xóa xuất hàng thất bại. Vui lòng thử lại.",
-      });
-      setOpenDialog(false); // Đóng Dialog trong trường hợp có lỗi
+      console.error("Error deleting shipment:", error.message);
+      setNotification({ type: "error", message: "Failed to delete shipment" });
+      setOpenDialog(false);
     }
   };
-  
+
   const handleCancelDelete = () => {
-    setOpenDialog(false); // Đóng dialog khi người dùng hủy
+    setOpenDialog(false);
   };
-  
 
   return (
     <Container maxWidth="lg">
@@ -195,34 +154,23 @@ const ExportShipment = () => {
           <Typography sx={{ fontWeight: "bold", fontSize: "20px", paddingLeft: "20px", flex: "1" }} variant="p">
             Quản lý Xuất Hàng
           </Typography>
-
           <Stack direction={"row"} alignItems={"center"} spacing={2} sx={{ flex: "2", justifyContent: "flex-end" }}>
-            {/* Date filter */}
             <TextField
               label="Chọn ngày"
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              InputLabelProps={{
-                shrink: true,
-              }}
+              InputLabelProps={{ shrink: true }}
               variant="outlined"
               size="small"
             />
-
             <Button
               onClick={handleFilter}
-              sx={{
-                backgroundColor: "#243642",
-                color: "white",
-                textTransform: "none",
-              }}
+              sx={{ backgroundColor: "#243642", color: "white", textTransform: "none" }}
               variant="contained"
             >
               Lọc
             </Button>
-
-            {/* Button to add new export shipment */}
             <Button
               onClick={() => handleOpenModal()}
               sx={{
@@ -258,8 +206,8 @@ const ExportShipment = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredExportShipments.length > 0 ? (
-             filteredExportShipments.map((shipment, index) => (
+            {filteredExportShipments.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).length > 0 ? (
+              filteredExportShipments.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((shipment, index) => (
                 <React.Fragment key={shipment.id}>
                   <TableRow>
                     <TableCell>
@@ -267,21 +215,18 @@ const ExportShipment = () => {
                         {expandedShipmentId === shipment.id ? <ExpandLess /> : <ExpandMore />}
                       </IconButton>
                     </TableCell>
-                    <TableCell>{index + 1}</TableCell> 
+                    <TableCell>{page * rowsPerPage + index + 1}</TableCell>
                     <TableCell sx={{ display: "none" }}>{shipment.id}</TableCell>
                     <TableCell>{shipment.export_address || "Chưa có địa chỉ"}</TableCell>
                     <TableCell>
-                      {shipment.exportState === "PENDING" ? "Đang chờ" : 
-                      shipment.exportState === "ON_GOING" ? "Đang giao" : 
-                      shipment.exportState === "CONFIRMED" ? "Đã xác nhận" : 
-                      shipment.exportState || "Chưa có trạng thái"}
+                      {shipment.exportState === "PENDING" ? "Đang chờ" :
+                       shipment.exportState === "ON_GOING" ? "Đang giao" :
+                       shipment.exportState === "CONFIRMED" ? "Đã xác nhận" :
+                       shipment.exportState || "Chưa có trạng thái"}
                     </TableCell>
-
                     <TableCell>{new Date(shipment.createdAt).toLocaleDateString("en-GB") || "Chưa có ngày tạo"}</TableCell>
                     <TableCell>
-                      {shipment.updatedAt ? 
-                        new Date(shipment.updatedAt).toLocaleDateString('en-GB') : 
-                        "Chưa có ngày cập nhật"}
+                      {shipment.updatedAt ? new Date(shipment.updatedAt).toLocaleDateString('en-GB') : "Chưa có ngày cập nhật"}
                     </TableCell>
                     <TableCell>
                       <IconButton onClick={() => handleOpenModal(shipment)}>
@@ -293,14 +238,11 @@ const ExportShipment = () => {
                     </TableCell>
                   </TableRow>
 
-                  {/* Expandable Row for Orders */}
                   {expandedShipmentId === shipment.id && (
                     <TableRow key={`details-${shipment.id}`}>
-                      <TableCell colSpan={7}>
+                      <TableCell colSpan={8}>
                         <Box sx={{ padding: "1rem" }}>
                           <Typography sx={{ fontWeight: "bold", marginBottom: "1rem" }}>Đơn hàng liên quan:</Typography>
-
-                          {/* Orders Table */}
                           <TableContainer component={Paper} sx={{ marginBottom: "1rem" }}>
                             <Table>
                               <TableHead>
@@ -314,7 +256,9 @@ const ExportShipment = () => {
                               <TableBody>
                                 {shipment.orderCode?.length > 0 ? (
                                   shipment.orderCode.map((orderCode, index) => {
-                                    fetchOrderDetails(orderCode);
+                                    if (!expandedShipmentOrders[orderCode]) {
+                                      fetchOrderDetails(orderCode); // Fetch details if not already fetched
+                                    }
                                     return (
                                       <TableRow key={index}>
                                         <TableCell>{orderCode}</TableCell>
@@ -323,10 +267,8 @@ const ExportShipment = () => {
                                             <TableCell>{expandedShipmentOrders[orderCode].delivery_Address}</TableCell>
                                             <TableCell>{new Date(expandedShipmentOrders[orderCode].created_at).toLocaleDateString()}</TableCell>
                                             <TableCell>
-                                            {expandedShipmentOrders[orderCode].orderPrice ? 
-                                              expandedShipmentOrders[orderCode].orderPrice : 
-                                              "Chưa có giá đơn hàng"}
-                                          </TableCell>
+                                              {expandedShipmentOrders[orderCode].orderPrice || "Chưa có giá đơn hàng"}
+                                            </TableCell>
                                           </>
                                         ) : (
                                           <TableCell colSpan={3}>Đang tải thông tin đơn hàng...</TableCell>
@@ -350,14 +292,14 @@ const ExportShipment = () => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} align="center">Không có dữ liệu</TableCell>
+                <TableCell colSpan={8} align="center">Không có dữ liệu</TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </TableContainer>
 
-       <Dialog
+      <Dialog
         open={openDialog}
         onClose={handleCancelDelete}
         aria-labelledby="alert-dialog-title"
@@ -366,9 +308,7 @@ const ExportShipment = () => {
         <DialogTitle id="alert-dialog-title">
           {"Bạn chắc chắn muốn xóa xuất hàng này?"}
         </DialogTitle>
-        <DialogContent>
-          {/* Nội dung có thể thêm thông tin thêm nếu cần */}
-        </DialogContent>
+        <DialogContent />
         <DialogActions>
           <Button onClick={handleCancelDelete} color="primary">
             Hủy
@@ -378,6 +318,7 @@ const ExportShipment = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
       <TablePagination
         rowsPerPageOptions={[5, 10, 25]}
         component="div"
@@ -388,15 +329,27 @@ const ExportShipment = () => {
         onRowsPerPageChange={handleChangeRowsPerPage}
       />
 
-      {/* Modal for adding or editing export shipment */}
       <ModalExport
         open={openModal}
         onClose={handleCloseModal}
         onSubmit={handleModalSubmit}
         setNotification={setNotification}
-        shipment={editingShipment} // Pass the shipment with orders to the modal
-        orders={editingOrders} // Pass the orders to the modal
+        shipment={editingShipment}
+        orders={editingOrders}
       />
+
+      {notification && (
+        <Snackbar
+          open={!!notification}
+          autoHideDuration={6000}
+          onClose={() => setNotification(null)}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
+          <Alert onClose={() => setNotification(null)} severity={notification.type}>
+            {notification.message}
+          </Alert>
+        </Snackbar>
+      )}
     </Container>
   );
 };
