@@ -4,7 +4,7 @@ class FilterStrategyContext {
     }
 
     filter(data, options) {
-        if (!this.strategy) return data; // No strategy, return unfiltered data
+        if (!this.strategy) return data;
         return this.strategy.filter(data, options);
     }
 }

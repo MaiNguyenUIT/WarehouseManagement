@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import './Product.css'
 import { Alert, alpha, Box, Button, Container, Fade, FormControl, InputAdornment, InputBase, InputLabel, MenuItem, Modal, Select, Snackbar, Stack, styled, TextField, Typography } from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
@@ -14,6 +14,8 @@ import { useNavigate } from "react-router-dom";
 import FilterStrategyContext from "../../DesignPatterns/Strategy/FilterStrategyContext";
 import CategoryFilterStrategy from "../../DesignPatterns/Strategy/CategoryFilterStrategy";
 import SupplierFilterStrategy from "../../DesignPatterns/Strategy/SupplierFilterStrategy";
+import ProductInvoker from "../../DesignPatterns/Command/ProductInvoker";
+import ProductReceiver from "../../DesignPatterns/Command/ProductReceiver";
 import AddProductCommand from "../../DesignPatterns/Command/AddProductCommand";
 import UpdateProductCommand from "../../DesignPatterns/Command/UpdateProductCommand";
 import DeleteProductCommand from "../../DesignPatterns/Command/DeleteProductCommand";
@@ -91,6 +93,8 @@ const Product = () => {
     const [openEdit, setOpenEdit] = useState(false);
     const [rows, setRows] = useState([]);
     const [selectedRow, setSelectedRow] = useState(null);
+    const invoker = useMemo(() => new ProductInvoker(), []); // Tạo instance duy nhất
+    const receiver = useMemo(() => new ProductReceiver(), []);
     const nav = useNavigate();
 
     const [openSnackbar, setOpenSnackbar] = useState(false);  // Control Snackbar visibility
@@ -141,20 +145,17 @@ const Product = () => {
     }
 
     const handleAddProduct = async () => {
-        const command = new AddProductCommand(refInput.current, images, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar, setOpen);
-        await command.execute();
+        await invoker.setCommand(new AddProductCommand(receiver, refInput.current, images, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar, setOpen)).executeCommand();
         fetchRows();
-    };
+  };
 
     const handleUpdateProduct = async () => {
-        const command = new UpdateProductCommand(selectedRow.id, refInput.current, images, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar, setOpenEdit);
-        await command.execute();
+        await invoker.setCommand(new UpdateProductCommand(receiver, selectedRow.id, refInput.current, images, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar, setOpenEdit)).executeCommand();
         fetchRows();
     };
 
     const handleDeleteButton = async (id) => {
-        const command = new DeleteProductCommand(id, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar);
-        await command.execute();
+        await invoker.setCommand(new DeleteProductCommand(receiver, id, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar)).executeCommand();
         fetchRows();
     };
 
