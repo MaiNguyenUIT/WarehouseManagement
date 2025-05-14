@@ -1,4 +1,6 @@
-class SupplierFilterStrategy {
+import FilterStrategy from "./FilterStrategy";
+
+class SupplierFilterStrategy extends FilterStrategy {
     filter(data, { search, subfilter }) {
         return data.filter(
             (row) =>
