@@ -55,11 +55,6 @@ const OrderPage = () => {
   const [statusFilter, setStatusFilter] = useState('')
   const [openModal, setOpenModal] = useState(false)
   const [openUpdateModal, setOpenUpdateModal] = useState(false)
-  const [newOrder, setNewOrder] = useState({
-    customer: '',
-    address: '',
-    orderItems: []
-  })
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [orders, setOrders] = useState([])
 
@@ -101,15 +96,12 @@ const OrderPage = () => {
   }
 
   const handleOpenModal = () => {
-    setNewOrder({
-      customer: '',
-      address: '',
-      orderItems: []
-    })
     setOpenModal(true)
   }
 
-  const handleCloseModal = () => setOpenModal(false)
+  const handleCloseModal = () => {
+    setOpenModal(false)
+  }
 
   const handleChangeSearch = e => {
     setSearchQuery(e.target.value)
@@ -120,13 +112,27 @@ const OrderPage = () => {
   }
 
   const handleOpenUpdateModal = order => {
+    console.log('Opening update modal for order:', order) // Debug log
     setSelectedOrder(order) // set the selected order for updating
     setOpenUpdateModal(true) // open update modal
   }
 
   const handleCloseUpdateModal = () => {
+    console.log('Closing update modal') // Debug log
     setOpenUpdateModal(false)
     setSelectedOrder(null) // reset selected order when closing modal
+  }
+
+  // Hàm xử lý submit order
+  const handleSubmitOrder = async orderData => {
+    try {
+      // Refresh danh sách orders sau khi tạo thành công
+      await fetchOrders()
+
+      console.log('Order created successfully:', orderData)
+    } catch (error) {
+      console.error('Error creating order:', error)
+    }
   }
 
   return (
@@ -219,19 +225,17 @@ const OrderPage = () => {
       />
 
       <OrderModal
-        openModal={openModal}
-        handleCloseModal={handleCloseModal}
-        newOrder={newOrder}
-        setOrders={setOrders}
-        setNewOrder={setNewOrder}
-        fetchOrders={fetchOrders}
+        open={openModal}
+        onClose={handleCloseModal}
+        onSubmit={handleSubmitOrder}
+        order={null}
       />
 
       <OrderUpdateModal
         openUpdateModal={openUpdateModal}
         handleCloseUpdateModal={handleCloseUpdateModal}
         selectedOrder={selectedOrder}
-        setOrders={setOrders}
+        fetchOrders={fetchOrders}
       />
     </Container>
   )
