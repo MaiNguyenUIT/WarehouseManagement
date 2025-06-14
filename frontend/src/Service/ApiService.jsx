@@ -668,6 +668,7 @@ export default class ApiService {
       throw error
     }
   }
+
   static async updateOrderStatus (id, formData) {
     try {
       const response = await axios.put(
@@ -683,6 +684,7 @@ export default class ApiService {
       throw error
     }
   }
+
   static async updateOrderState (id, formData) {
     try {
       const response = await axios.put(
@@ -695,9 +697,11 @@ export default class ApiService {
       )
       return response.data
     } catch (error) {
+      console.error('Error updating order state:', error)
       throw error
     }
   }
+
   static async getProduct () {
     try {
       const response = await axios.get(`${this.BASE_URL}/api/product`, {

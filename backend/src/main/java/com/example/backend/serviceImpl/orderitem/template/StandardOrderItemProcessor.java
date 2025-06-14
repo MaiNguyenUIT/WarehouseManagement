@@ -9,7 +9,6 @@ import com.example.backend.repository.InventoryRepository;
 import com.example.backend.repository.OrderItemRepository;
 import com.example.backend.repository.ProductRepository;
 import com.example.backend.repository.ShelfRepository;
-import com.example.backend.serviceImpl.orderitem.OrderItemProcessingContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -36,38 +35,47 @@ public class StandardOrderItemProcessor extends OrderItemProcessingTemplate {
   }
 
   @Override
-  protected void validateInput(OrderItemProcessingContext context) throws Exception {
-    OrderItem input = context.getOrderItemInput();
-    if (input == null) {
+  protected void validateInput(OrderItem orderItemInput, boolean isUpdate) throws Exception {
+    if (orderItemInput == null) {
       throw new Exception("OrderItem input cannot be null");
     }
 
     // Kiểm tra mã OrderItem đã tồn tại (chỉ cho create)
-    if (!context.isUpdateOperation()) {
-      OrderItem existingOrderItem = orderItemRepository.findByorderItemCode(input.getOrderItemCode());
+    if (!isUpdate) {
+      OrderItem existingOrderItem = orderItemRepository.findByorderItemCode(orderItemInput.getOrderItemCode());
       if (existingOrderItem != null) {
-        throw new Exception("OrderItem code is already exist");
+        throw new Exception("OrderItem code already exists");
       }
     }
   }
 
   @Override
-  protected void fetchExistingOrderItem(OrderItemProcessingContext context) throws Exception {
-    if (context.getOrderItemResult() == null && context.getOrderItemInput() != null
-        && context.getOrderItemInput().getOrderItem_id() != null) {
-      Optional<OrderItem> orderItemOpt = orderItemRepository.findById(context.getOrderItemInput().getOrderItem_id());
-      if (orderItemOpt.isEmpty()) {
-        throw new Exception("OrderItem with ID: " + context.getOrderItemInput().getOrderItem_id() + " not found.");
-      }
-      context.setOrderItemResult(orderItemOpt.get());
-    } else if (context.getOrderItemResult() == null) {
-      throw new Exception("OrderItem not available in the context.");
+  protected OrderItem fetchExistingOrderItem(OrderItem orderItemInput) throws Exception {
+    if (orderItemInput.getOrderItem_id() == null) {
+      throw new Exception("OrderItem ID is required for update operation");
     }
+
+    Optional<OrderItem> orderItemOpt = orderItemRepository.findById(orderItemInput.getOrderItem_id());
+    if (orderItemOpt.isEmpty()) {
+      throw new Exception("OrderItem with ID: " + orderItemInput.getOrderItem_id() + " not found");
+    }
+
+    return orderItemOpt.get();
   }
 
   @Override
-  protected void validateProduct(OrderItemProcessingContext context) throws Exception {
-    String productId = context.getOrderItemInput().getProduct_id();
+  protected OrderItem fetchExistingOrderItemById(String id) throws Exception {
+    Optional<OrderItem> orderItemOpt = orderItemRepository.findById(id);
+    if (orderItemOpt.isEmpty()) {
+      throw new Exception("OrderItem with ID: " + id + " not found");
+    }
+
+    return orderItemOpt.get();
+  }
+
+  @Override
+  protected void validateProduct(OrderItem orderItemInput) throws Exception {
+    String productId = orderItemInput.getProduct_id();
     Optional<Product> productOpt = productRepository.findById(productId);
 
     if (productOpt.isEmpty()) {
@@ -75,38 +83,38 @@ public class StandardOrderItemProcessor extends OrderItemProcessingTemplate {
     }
 
     Product product = productOpt.get();
-    int requestedQuantity = context.getOrderItemInput().getQuantity();
+    int requestedQuantity = orderItemInput.getQuantity();
 
     if (product.getInventory_quantity() < requestedQuantity) {
-      throw new Exception("Not enough product quantity. Available: " + product.getInventory_quantity() + ", Requested: "
-          + requestedQuantity);
+      throw new Exception("Not enough product quantity. Available: " +
+          product.getInventory_quantity() + ", Requested: " + requestedQuantity);
+    }
+  }
+
+  @Override
+  protected int calculatePrice(OrderItem orderItemInput) throws Exception {
+    Optional<Product> productOpt = productRepository.findById(orderItemInput.getProduct_id());
+    if (productOpt.isEmpty()) {
+      throw new Exception("Product not found for price calculation");
     }
 
-    context.setProductOptional(Optional.of(product));
+    Product product = productOpt.get();
+    return product.getPrice() * orderItemInput.getQuantity();
   }
 
   @Override
-  protected void calculatePrice(OrderItemProcessingContext context) throws Exception {
-    Product product = context.getProductOptional()
-        .orElseThrow(() -> new Exception("Product not found in context"));
+  protected void updateInventory(OrderItem orderItemInput, OrderItem existingOrderItem, boolean isUpdate)
+      throws Exception {
+    Optional<Product> productOpt = productRepository.findById(orderItemInput.getProduct_id());
+    if (productOpt.isEmpty()) {
+      throw new Exception("Product not found for inventory update");
+    }
 
-    int quantity = context.getOrderItemInput().getQuantity();
-    int totalPrice = product.getPrice() * quantity;
-
-    context.getOrderItemResult().setTotalPrice(totalPrice);
-  }
-
-  @Override
-  protected void updateInventory(OrderItemProcessingContext context) throws Exception {
-    Product product = context.getProductOptional()
-        .orElseThrow(() -> new Exception("Product not found in context"));
-
-    OrderItem orderItemInput = context.getOrderItemInput();
+    Product product = productOpt.get();
     int quantityToProcess = orderItemInput.getQuantity();
 
     // Xử lý cho update operation
-    if (context.isUpdateOperation()) {
-      OrderItem existingOrderItem = context.getOrderItemResult();
+    if (isUpdate && existingOrderItem != null) {
       int oldQuantity = existingOrderItem.getQuantity();
       // Hoàn trả số lượng cũ
       product.setInventory_quantity(product.getInventory_quantity() + oldQuantity);
@@ -118,7 +126,7 @@ public class StandardOrderItemProcessor extends OrderItemProcessingTemplate {
     if (product.getInventory_quantity() == 0) {
       product.setProductStatus(PRODUCT_STATUS.OUT_STOCK);
     } else if (product.getInventory_quantity() < 0) {
-      throw new Exception("Product inventory quantity cannot be negative.");
+      throw new Exception("Product inventory quantity cannot be negative");
     } else {
       product.setProductStatus(PRODUCT_STATUS.IN_STOCK);
     }
@@ -126,31 +134,28 @@ public class StandardOrderItemProcessor extends OrderItemProcessingTemplate {
     productRepository.save(product);
 
     // Cập nhật kệ
-    updateShelfInventory(context, product, quantityToProcess);
+    updateShelfInventory(orderItemInput, existingOrderItem, product, quantityToProcess, isUpdate);
   }
 
-  private void updateShelfInventory(OrderItemProcessingContext context, Product product, int quantityToProcess)
-      throws Exception {
-    OrderItem orderItemInput = context.getOrderItemInput();
-
+  private void updateShelfInventory(OrderItem orderItemInput, OrderItem existingOrderItem,
+      Product product, int quantityToProcess, boolean isUpdate) throws Exception {
     if (orderItemInput.getShelfCode() == null || orderItemInput.getShelfCode().isEmpty()) {
-      throw new Exception("Shelf code is required for inventory update.");
+      throw new Exception("Shelf code is required for inventory update");
     }
 
     String targetShelfCode = orderItemInput.getShelfCode().get(0);
     Shelf shelf = shelfRepository.findByshelfCode(targetShelfCode);
 
     if (shelf == null) {
-      throw new Exception("Shelf with code " + targetShelfCode + " not found.");
+      throw new Exception("Shelf with code " + targetShelfCode + " not found");
     }
 
     if (shelf.getProductId() != null && !shelf.getProductId().equals(product.getId())) {
-      throw new Exception("Shelf " + targetShelfCode + " already contains a different product.");
+      throw new Exception("Shelf " + targetShelfCode + " already contains a different product");
     }
 
     // Cập nhật số lượng kệ
-    if (context.isUpdateOperation()) {
-      OrderItem existingOrderItem = context.getOrderItemResult();
+    if (isUpdate && existingOrderItem != null) {
       shelf.setQuantity(shelf.getQuantity() + existingOrderItem.getQuantity() - quantityToProcess);
     } else {
       shelf.setQuantity(shelf.getQuantity() - quantityToProcess);
@@ -160,7 +165,7 @@ public class StandardOrderItemProcessor extends OrderItemProcessingTemplate {
       throw new Exception("Shelf quantity cannot be negative for shelf " + targetShelfCode);
     }
 
-    if (shelf.getQuantity() == 0 && !context.isUpdateOperation()) {
+    if (shelf.getQuantity() == 0 && !isUpdate) {
       shelfRepository.deleteById(shelf.getId());
     } else {
       shelf.setProductId(product.getId());
@@ -186,33 +191,39 @@ public class StandardOrderItemProcessor extends OrderItemProcessingTemplate {
   }
 
   @Override
-  protected void setupOrderItem(OrderItemProcessingContext context) throws Exception {
-    OrderItem orderItemInput = context.getOrderItemInput();
-    OrderItem orderItemResult = context.getOrderItemResult();
+  protected OrderItem setupOrderItem(OrderItem orderItemInput, OrderItem existingOrderItem,
+      int totalPrice, boolean isUpdate) throws Exception {
+    OrderItem orderItemToSave;
 
-    orderItemResult.setProduct_id(orderItemInput.getProduct_id());
-    orderItemResult.setQuantity(orderItemInput.getQuantity());
-    orderItemResult.setOrderItemCode(orderItemInput.getOrderItemCode());
-    orderItemResult.setShelfCode(orderItemInput.getShelfCode());
+    if (isUpdate && existingOrderItem != null) {
+      orderItemToSave = existingOrderItem;
+    } else {
+      orderItemToSave = new OrderItem();
+    }
+
+    orderItemToSave.setProduct_id(orderItemInput.getProduct_id());
+    orderItemToSave.setQuantity(orderItemInput.getQuantity());
+    orderItemToSave.setOrderItemCode(orderItemInput.getOrderItemCode());
+    orderItemToSave.setShelfCode(orderItemInput.getShelfCode());
+    orderItemToSave.setTotalPrice(totalPrice);
+
+    return orderItemToSave;
   }
 
   @Override
-  protected OrderItem persistOrderItem(OrderItemProcessingContext context) throws Exception {
-    return orderItemRepository.save(context.getOrderItemResult());
+  protected OrderItem persistOrderItem(OrderItem orderItem) throws Exception {
+    return orderItemRepository.save(orderItem);
   }
 
   @Override
-  protected void validateDeletion(OrderItemProcessingContext context) throws Exception {
-    OrderItem orderItem = context.getOrderItemResult();
+  protected void validateDeletion(OrderItem orderItem) throws Exception {
     if (orderItem == null) {
       throw new Exception("OrderItem not found for deletion");
     }
   }
 
   @Override
-  protected void revertInventory(OrderItemProcessingContext context) throws Exception {
-    OrderItem orderItemToDelete = context.getOrderItemResult();
-
+  protected void revertInventory(OrderItem orderItemToDelete) throws Exception {
     Optional<Product> productOpt = productRepository.findById(orderItemToDelete.getProduct_id());
     if (productOpt.isPresent()) {
       Product product = productOpt.get();
@@ -240,8 +251,7 @@ public class StandardOrderItemProcessor extends OrderItemProcessingTemplate {
   }
 
   @Override
-  protected void performDeletion(OrderItemProcessingContext context) throws Exception {
-    OrderItem orderItemToDelete = context.getOrderItemResult();
+  protected void performDeletion(OrderItem orderItemToDelete) throws Exception {
     orderItemRepository.deleteById(orderItemToDelete.getOrderItem_id());
   }
 }
