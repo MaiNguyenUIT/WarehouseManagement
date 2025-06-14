@@ -31,34 +31,38 @@ public class AdminOrderController {
         return new ResponseEntity<>(orderService.getAllOrder(), HttpStatus.OK);
     }
 
-    @PutMapping("/updateOrderStatus/{id}")
-    public ResponseEntity<Order> updateOrderState(@RequestHeader("Authorization") String jwt, @PathVariable String id, @RequestBody OrderStateRequest state) throws Exception{
+    @PutMapping("/updateOrderState/{id}")
+    public ResponseEntity<Order> updateOrderState(@RequestHeader("Authorization") String jwt, @PathVariable String id,
+            @RequestBody OrderStateRequest state) throws Exception {
         User user = userService.findUserByJwtToken(jwt);
         return new ResponseEntity<>(orderService.updateOrderState(state, id), HttpStatus.OK);
     }
 
     @DeleteMapping("/deleteOrder/{id}")
-    public ResponseEntity<Void> deleteOrder(@RequestHeader("Authorization") String jwt, @PathVariable String id) throws Exception{
+    public ResponseEntity<Void> deleteOrder(@RequestHeader("Authorization") String jwt, @PathVariable String id)
+            throws Exception {
         User user = userService.findUserByJwtToken(jwt);
         orderService.deleteOrder(id);
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
     @GetMapping("/getOrderQuantity")
-    public ResponseEntity<OrderQuantity> getOrderQuantity(@RequestHeader("Authorization") String jwt) throws Exception{
+    public ResponseEntity<OrderQuantity> getOrderQuantity(@RequestHeader("Authorization") String jwt) throws Exception {
         User user = userService.findUserByJwtToken(jwt);
         return new ResponseEntity<>(orderService.getOrderQuantity(), HttpStatus.OK);
     }
 
-    @PutMapping("/updateOrderState/{id}")
-    public ResponseEntity<Order> updateOrderStatus(@RequestHeader("Authorization") String jwt, @PathVariable String id, @RequestBody OrderStatusRequest status) throws Exception{
+    @PutMapping("/updateOrderStatus/{id}")
+    public ResponseEntity<Order> updateOrderStatus(@RequestHeader("Authorization") String jwt, @PathVariable String id,
+            @RequestBody OrderStatusRequest status) throws Exception {
         User user = userService.findUserByJwtToken(jwt);
         return new ResponseEntity<>(orderService.updateOrderStatus(status, id), HttpStatus.OK);
     }
 
     @GetMapping("/by-month")
-    public ResponseEntity<OrderQuantity> getOrderQuantityByMonth(@RequestHeader("Authorization") String jwt, @RequestParam("month") int month,
-                                                                 @RequestParam("year") int year) throws Exception{
+    public ResponseEntity<OrderQuantity> getOrderQuantityByMonth(@RequestHeader("Authorization") String jwt,
+            @RequestParam("month") int month,
+            @RequestParam("year") int year) throws Exception {
         User user = userService.findUserByJwtToken(jwt);
         return new ResponseEntity<>(orderService.getOrderQuantityByMonth(month, year), HttpStatus.OK);
     }

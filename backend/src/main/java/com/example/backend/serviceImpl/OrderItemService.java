@@ -28,35 +28,20 @@ public class OrderItemService implements com.example.backend.service.OrderItemSe
     @Override
     @Transactional
     public OrderItem createOrderItem(OrderItem orderItem) throws Exception {
-        OrderItemProcessingContext context = new OrderItemProcessingContext(orderItem, false);
-        return orderItemProcessor.processOrderItem(context);
+        return orderItemProcessor.processOrderItem(orderItem, false);
     }
 
     @Override
     @Transactional
     public OrderItem updateOrderItem(OrderItem orderItem, String id) throws Exception {
-        Optional<OrderItem> existingOrderItemOpt = orderItemRepository.findById(id);
-        if (existingOrderItemOpt.isEmpty()) {
-            throw new Exception("OrderItem not found with id: " + id);
-        }
-
-        OrderItem existingOrderItem = existingOrderItemOpt.get();
         orderItem.setOrderItem_id(id); // Đảm bảo ID được set
-
-        OrderItemProcessingContext context = new OrderItemProcessingContext(orderItem, existingOrderItem, true);
-        return orderItemProcessor.processOrderItem(context);
+        return orderItemProcessor.processOrderItem(orderItem, true);
     }
 
     @Override
     @Transactional
     public void deleteOrderItem(String id) throws Exception {
-        OrderItem placeholderOrderItemWithId = new OrderItem();
-        placeholderOrderItemWithId.setOrderItem_id(id);
-
-        OrderItemProcessingContext context = new OrderItemProcessingContext(placeholderOrderItemWithId, true);
-        context.setOrderItemResult(null); // Để fetch handler biết cần phải fetch
-
-        orderItemProcessor.deleteOrderItem(context);
+        orderItemProcessor.deleteOrderItem(id);
     }
 
     @Override

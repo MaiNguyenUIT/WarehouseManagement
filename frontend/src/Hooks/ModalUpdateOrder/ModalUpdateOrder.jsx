@@ -325,7 +325,34 @@ const OrderUpdateModal = ({
         return
       }
 
-      // Process each order item
+      console.log('=== DEBUG UPDATE ORDER ===')
+      console.log('Selected Order:', selectedOrder)
+      console.log('Current order state:', selectedOrder.state)
+      console.log('New order state:', orderDetails.orderState)
+      console.log('Order ID:', selectedOrder.id)
+
+      // 1. Cập nhật order details trước (nếu cần)
+      const currentTime = new Date().toISOString()
+      const orderUpdateData = {
+        orderItem_code: orderItems
+          .map(item => item.orderItemCode)
+          .filter(Boolean),
+        delivery_Address: orderDetails.delivery_Address || '',
+        created_at: orderDetails.created_at || currentTime,
+        update_at: currentTime,
+        orderCode: orderDetails.orderCode || ''
+      }
+
+      console.log('1. Updating order details:', orderUpdateData)
+
+      try {
+        await ApiService.updateOrder(selectedOrder.id, orderUpdateData)
+        console.log('Order details updated successfully')
+      } catch (error) {
+        console.error('Error updating order details:', error)
+      }
+
+      // 2. Cập nhật order items
       for (const item of orderItems) {
         try {
           const itemData = {
@@ -338,12 +365,9 @@ const OrderUpdateModal = ({
           }
 
           if (item.orderItem_id) {
-            // Update existing item
-            itemData.orderItem_id = item.orderItem_id
             await ApiService.updateOrderItem(item.orderItem_id, itemData)
             console.log(`Updated order item: ${item.orderItemCode}`)
           } else {
-            // Create new item
             await ApiService.addOrderItem(itemData)
             console.log(`Created new order item: ${item.orderItemCode}`)
           }
@@ -352,28 +376,45 @@ const OrderUpdateModal = ({
         }
       }
 
-      // Update order details
-      const currentTime = new Date().toISOString()
-      const orderData = {
-        orderItem_code: orderItems
-          .map(item => item.orderItemCode)
-          .filter(Boolean),
-        delivery_Address: orderDetails.delivery_Address || '',
-        created_at: orderDetails.created_at || currentTime,
-        update_at: currentTime,
-        orderCode: orderDetails.orderCode || ''
-      }
+      // 3. Cập nhật trạng thái order (QUAN TRỌNG NHẤT)
+      if (
+        orderDetails.orderState &&
+        orderDetails.orderState !== selectedOrder.state
+      ) {
+        console.log(
+          '2. Updating order state from',
+          selectedOrder.state,
+          'to',
+          orderDetails.orderState
+        )
 
-      console.log('Updating order with data:', orderData)
-
-      if (selectedOrder.id) {
-        await ApiService.updateOrder(selectedOrder.id, orderData)
-
-        // Update order state if needed
-        if (orderDetails.orderState) {
-          const orderStatePayload = { state: orderDetails.orderState }
-          await ApiService.updateOrderState(selectedOrder.id, orderStatePayload)
+        const orderStatePayload = {
+          state: orderDetails.orderState
         }
+
+        console.log('Sending state payload:', orderStatePayload)
+
+        try {
+          const stateUpdateResult = await ApiService.updateOrderState(
+            selectedOrder.id,
+            orderStatePayload
+          )
+          console.log('Order state update result:', stateUpdateResult)
+          console.log(
+            'New order state should be:',
+            stateUpdateResult.orderState
+          )
+        } catch (stateError) {
+          console.error('Error updating order state:', stateError)
+          console.error('State error details:', stateError.response?.data)
+          throw new Error(
+            `Không thể cập nhật trạng thái: ${
+              stateError.response?.data?.message || stateError.message
+            }`
+          )
+        }
+      } else {
+        console.log('No state change needed')
       }
 
       setSnackbarSeverity('success')
@@ -387,9 +428,9 @@ const OrderUpdateModal = ({
         handleCloseUpdateModal()
       }, 2000)
     } catch (error) {
-      console.error('Error updating order:', error)
+      console.error('Error in handleSubmitOrder:', error)
       setSnackbarSeverity('error')
-      setSnackbarMessage('Có lỗi xảy ra khi cập nhật đơn hàng')
+      setSnackbarMessage(`Có lỗi xảy ra: ${error.message}`)
       setSnackbarOpen(true)
     }
   }
