@@ -7,7 +7,7 @@ import {
 } from "@mui/material";
 import { Add, Edit, Delete, ExpandMore, ExpandLess } from "@mui/icons-material";
 import ModalExport from "../../Hooks/ModalExport/ModalExport.jsx";
-import ExportManagerFacade from "../../Service/ExportManagerFacade"; // Adjust the import path
+import ExportManagerFacade from "../../DesignPatterns/Facade/ExportManagerFacade.jsx"; // Adjust the import path
 import PrimarySearchAppBar from "../../Component/AppBar/AppBar.jsx";
 
 const ExportShipment = () => {

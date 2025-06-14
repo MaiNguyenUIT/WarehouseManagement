@@ -1,7 +1,7 @@
 package com.example.backend.config;
 
+import com.example.backend.pattern.Decorator.LoggingAndValidatingImportShipmentServiceDecorator;
 import com.example.backend.service.ImportShipmentService;
-import com.example.backend.Decorator.LoggingAndValidatingImportShipmentServiceDecorator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
