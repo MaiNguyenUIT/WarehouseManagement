@@ -13,9 +13,12 @@ import java.util.Optional;
 import java.util.ArrayList;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
+<<<<<<< HEAD
 public class ImportShipmentService implements com.example.backend.service.ImportShipmentService{
+=======
+public class ImportShipmentService implements com.example.backend.service.ImportShipmentService {
+>>>>>>> main
     @Autowired
     private ImportShipmentRepository importShipmentRepository;
     @Autowired

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+
+  import React, { useState, useEffect } from "react";
 import {
   Container, Stack, Button, Typography, IconButton, Box, Table, TableBody,
   TableCell, TableHead, TableRow, Paper, TableContainer, TextField, TablePagination,
@@ -6,7 +7,11 @@ import {
 } from "@mui/material";
 import { Add, Edit, Delete, ExpandMore, ExpandLess } from "@mui/icons-material";
 import ModalExport from "../../Hooks/ModalExport/ModalExport.jsx";
+<<<<<<< HEAD
 import ExportManagerFacade from "../../Service/ExportManagerFacade"; // Adjust the import path
+=======
+import ExportManagerFacade from "../../DesignPatterns/Facade/ExportManagerFacade.jsx"; // Adjust the import path
+>>>>>>> main
 import PrimarySearchAppBar from "../../Component/AppBar/AppBar.jsx";
 
 const ExportShipment = () => {

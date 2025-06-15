@@ -294,7 +294,7 @@ export default function ImportShipment() {
         // setSelectedRow(row);
         // setOpenEdit(true);
         // refInput.current = row;
-        // setListCategory(await ApiService.getAllCategorys());
+        // setListCategory(await ApiService.getAllCategories());
         // setListSupplier(await ApiService.getAllSupplier());
     };
 

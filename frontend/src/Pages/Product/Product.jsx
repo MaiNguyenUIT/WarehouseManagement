@@ -1,15 +1,29 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import './Product.css'
-import { Alert, alpha, Box, Button, Container, Fade, FormControl, IconButton, InputAdornment, InputBase, InputLabel, MenuItem, Modal, Select, Snackbar, Stack, styled, TextField, Typography } from "@mui/material";
+import { Alert, alpha, Box, Button, Container, Fade, FormControl, InputAdornment, InputBase, InputLabel, MenuItem, Modal, Select, Snackbar, Stack, styled, TextField, Typography } from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import MyTable from "../../Component/MyTable";
+<<<<<<< HEAD
 import ProductManagerFacade from "../../Service/ProductManagerFacade"; // Adjust the import path
+=======
+import ApiService from "../../Service/ApiService";
+import ProductService from "../../DesignPatterns/Adapter/services/ProductService";
+>>>>>>> main
 import dayjs from 'dayjs';
 import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { useNavigate } from "react-router-dom";
+<<<<<<< HEAD
+=======
+import FilterStrategyContext from "../../DesignPatterns/Strategy/FilterStrategyContext";
+import CategoryFilterStrategy from "../../DesignPatterns/Strategy/CategoryFilterStrategy";
+import SupplierFilterStrategy from "../../DesignPatterns/Strategy/SupplierFilterStrategy";
+import AddProductCommand from "../../DesignPatterns/Command/AddProductCommand";
+import UpdateProductCommand from "../../DesignPatterns/Command/UpdateProductCommand";
+import DeleteProductCommand from "../../DesignPatterns/Command/DeleteProductCommand";
+>>>>>>> main
 
 const StyledInputBase = styled(InputBase)(({ theme }) => ({
     color: 'black',
@@ -58,7 +72,11 @@ const columns = [
 const productStatus = [
     "IN_STOCK",
     "OUT_STOCK"
+<<<<<<< HEAD
 ];
+=======
+]
+>>>>>>> main
 
 const style = {
     position: 'absolute',
@@ -85,12 +103,19 @@ const Product = () => {
     const [selectedRow, setSelectedRow] = useState(null);
     const nav = useNavigate();
 
+<<<<<<< HEAD
     const [openSnackbar, setOpenSnackbar] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState("");
     const [snackbarSeverity, setSnackbarSeverity] = useState("success");
 
     const [images, setImages] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
+=======
+    const [openSnackbar, setOpenSnackbar] = useState(false);  // Control Snackbar visibility
+    const [snackbarMessage, setSnackbarMessage] = useState(""); // Snackbar message content
+    const [snackbarSeverity, setSnackbarSeverity] = useState("success"); // Severity type (success, error, etc.)
+    const [filterStrategy, setFilterStrategy] = useState(null);
+>>>>>>> main
 
     useEffect(() => {
         fetchRows();
@@ -101,6 +126,7 @@ const Product = () => {
         setFilter(value);
         setSubFilter("");
         setSubFilterVisible(value !== '');
+<<<<<<< HEAD
         try {
             const categories = await ProductManagerFacade.fetchCategories();
             const suppliers = await ProductManagerFacade.fetchSuppliers();
@@ -111,6 +137,18 @@ const Product = () => {
             setSnackbarMessage("Failed to load filters");
             setSnackbarSeverity("error");
             setOpenSnackbar(true);
+=======
+        setListCategory(await ApiService.getAllCategories());
+        setListSupplier(await ApiService.getAllSupplier());
+
+        // Set the appropriate filter strategy
+        if (value === "Loại") {
+            setFilterStrategy(new CategoryFilterStrategy());
+        } else if (value === "Nhà cung cấp") {
+            setFilterStrategy(new SupplierFilterStrategy());
+        } else {
+            setFilterStrategy(null);
+>>>>>>> main
         }
     };
 
@@ -132,6 +170,7 @@ const Product = () => {
     };
 
     const handleAddProduct = async () => {
+<<<<<<< HEAD
         if (refInput.current['productName'] &&
             refInput.current['categoryId'] &&
             refInput.current['supplierId'] &&
@@ -189,18 +228,51 @@ const Product = () => {
             setSnackbarSeverity("error");
             setOpenSnackbar(true);
         }
+=======
+        const command = new AddProductCommand(refInput.current, images, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar, setOpen);
+        await command.execute();
+        fetchRows();
+    };
+
+    const handleUpdateProduct = async () => {
+        const command = new UpdateProductCommand(selectedRow.id, refInput.current, images, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar, setOpenEdit);
+        await command.execute();
+        fetchRows();
+    };
+
+    const handleDeleteButton = async (id) => {
+        const command = new DeleteProductCommand(id, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar);
+        await command.execute();
+        fetchRows();
+>>>>>>> main
     };
 
     const handleEditButton = async (row) => {
         setSelectedRow(row);
         refInput.current = { ...row };
         setImages(null);
+<<<<<<< HEAD
         setPreviewUrl(row.image || null);
         try {
             const categories = await ProductManagerFacade.fetchCategories();
             const suppliers = await ProductManagerFacade.fetchSuppliers();
             setListCategory(categories);
             setListSupplier(suppliers);
+=======
+        setImageUrls(null);
+
+        setListCategory(await ApiService.getAllCategories());
+        setListSupplier(await ApiService.getAllSupplier());
+
+        const updateStates = async () => {
+            if (row.image !== null) {
+                await setImageUrls(row.image);
+                await setPreviewUrl(row.image);
+            } else {
+                await setImageUrls(null);
+                await setPreviewUrl(null);
+            }
+>>>>>>> main
             setOpenEdit(true);
         } catch (error) {
             console.error("Error loading edit modal:", error.message);
@@ -219,6 +291,7 @@ const Product = () => {
         setImages(null);
         setPreviewUrl(null);
         refInput.current = {};
+<<<<<<< HEAD
         try {
             const categories = await ProductManagerFacade.fetchCategories();
             const suppliers = await ProductManagerFacade.fetchSuppliers();
@@ -259,6 +332,39 @@ const Product = () => {
         row.productName.toLowerCase().includes(search.toLowerCase()) &&
         ((filter !== "" && subfilter !== "") ? (filter === 'Loại' ? row.categoryName === subfilter : row.supplierName === subfilter) : true)
     );
+=======
+        setListCategory(await ApiService.getAllCategories());
+        setListSupplier(await ApiService.getAllSupplier());
+    }
+    const handleClose = () => {
+        setOpen(false);
+        fetchRows();
+    }
+
+    const fetchRows = async () => {
+        try {
+            const response = await ProductService.getAllProducts();
+            setRows(response);
+        } catch (error) {
+            console.error("Lỗi khi tải thông tin các Product", error.message);
+        }
+    };
+
+    //image upload
+    const [images, setImages] = useState(null);
+    const [imageUrls, setImageUrls] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
+
+    const handleImageChange = (e) => {
+        setImages(e.target.files[0]);
+        setPreviewUrl(URL.createObjectURL(e.target.files[0]));
+    };
+
+    const filteredRows = new FilterStrategyContext(filterStrategy).filter(rows, {
+        search,
+        subfilter,
+    });
+>>>>>>> main
 
     return (
         <Container maxWidth="xl" className="Product" sx={{ width: "100%", height: "auto", display: "flex", flexDirection: "column"}}>

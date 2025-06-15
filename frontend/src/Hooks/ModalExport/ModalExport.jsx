@@ -19,7 +19,11 @@ import {
   Snackbar,
   Alert
 } from "@mui/material";
+<<<<<<< HEAD
 import ExportManagerFacade from "../../Service/ExportManagerFacade"; // Adjust the import path
+=======
+import ExportManagerFacade from "../../DesignPatterns/Facade/ExportManagerFacade"; // Adjust the import path
+>>>>>>> main
 
 const ModalExport = ({ open, onClose, onSubmit, shipment, setNotification }) => {
   const [orders, setOrders] = useState([]);

@@ -6,7 +6,11 @@ import {
   Modal, Fade, Box, Snackbar, Alert, Select, MenuItem
 } from "@mui/material";
 import TableReport from "../../Hooks/TableReport.jsx/TableReport";
+<<<<<<< HEAD
 import ReportManagerFacade from "../../Service/ReportManagerFacade"; // Adjust the import path
+=======
+import ReportManagerFacade from "../../DesignPatterns/Facade/ReportManagerFacade"; // Adjust the import path
+>>>>>>> main
 
 const style = {
   position: "absolute",
