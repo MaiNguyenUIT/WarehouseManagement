@@ -4,6 +4,7 @@ package com.example.backend.respone;
 import com.example.backend.ENUM.PRODUCT_STATUS;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 
@@ -24,5 +25,7 @@ public class ProductRespone{
     private String supplierName;
     private String categoryName;
     private PRODUCT_STATUS productStatus;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }
 

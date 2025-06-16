@@ -4,6 +4,7 @@ import com.example.backend.model.Category;
 import com.example.backend.repository.CategoryRepository;
 import com.example.backend.request.CategoryRequest;
 import com.example.backend.service.CategoryService;
+import com.example.backend.utils.factories.CategoryFactoryManage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +29,7 @@ public class StandardCategoryService implements CategoryService {
         if (existingCategory != null) {
             throw new Exception("Category is already exist");
         }
-        Category newCategory = new Category();
+        Category newCategory = (Category)CategoryFactoryManage.getInstance().createEntity();
         newCategory.setCategoryName(category.getCategoryName());
         newCategory.setDescription(category.getDescription());
         return categoryRepository.save(newCategory);

@@ -8,7 +8,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @Document(
         "categories"
 )
-public class Category {
+public class Category extends BaseModel {
     @Id
     private String id;
     private String categoryName;

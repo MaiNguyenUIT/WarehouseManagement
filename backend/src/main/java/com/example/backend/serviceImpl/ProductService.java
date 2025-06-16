@@ -8,10 +8,12 @@ import com.example.backend.repository.CategoryRepository;
 import com.example.backend.repository.ProductRepository;
 import com.example.backend.repository.SupplierRepository;
 import com.example.backend.request.ProductRequest;
+import com.example.backend.utils.factories.ProductFactoryManage;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -78,6 +80,8 @@ public class ProductService implements com.example.backend.service.ProductServic
             productRespone.setSupplierId(i.getSupplierId());
             productRespone.setProductStatus(i.getProductStatus());
             productRespone.setId(i.getId());
+            productRespone.setCreatedAt(i.getCreatedAt());
+            productRespone.setUpdatedAt(i.getUpdatedAt());
 
             productRespone.setSupplierName(supplierName);
             productRespone.setCategoryName(categoryName);
@@ -91,17 +95,19 @@ public class ProductService implements com.example.backend.service.ProductServic
     @Override
     public Product addProduct(ProductRequest product) {
 
-        Product newProduct = new Product();
-        newProduct.setProductName(product.getProductName());
-        newProduct.setProduction_date(product.getProduction_date());
-        newProduct.setUnit(product.getUnit());
-        newProduct.setSupplierId(product.getSupplierId());
-        newProduct.setCategoryId(product.getCategoryId());
-        newProduct.setExpiration_date(product.getExpiration_date());
-        newProduct.setImage(product.getImage());
-        newProduct.setDescription(product.getDescription());
-        newProduct.setInventory_quantity(product.getInventory_quantity());
-        newProduct.setPrice(product.getPrice());
+        Product newProduct = ProductFactoryManage.getInstance().createProductFromRequest(product);
+        // new Product();
+        // newProduct.setProductName(product.getProductName());
+        // newProduct.setProduction_date(product.getProduction_date());
+        // newProduct.setUnit(product.getUnit());
+        // newProduct.setSupplierId(product.getSupplierId());
+        // newProduct.setCategoryId(product.getCategoryId());
+        // newProduct.setExpiration_date(product.getExpiration_date());
+        // newProduct.setImage(product.getImage());
+        // newProduct.setDescription(product.getDescription());
+        // newProduct.setInventory_quantity(product.getInventory_quantity());
+        // newProduct.setPrice(product.getPrice());
+
         return productRepository.save(newProduct);
     }
 
@@ -121,6 +127,7 @@ public class ProductService implements com.example.backend.service.ProductServic
         existingProduct.setSupplierId(product.getSupplierId());
         existingProduct.setPrice(product.getPrice());
         existingProduct.setProductStatus(product.getProductStatus());
+        existingProduct.setUpdatedAt(LocalDateTime.now());
         return this.productRepository.save(existingProduct);
     }
 
