@@ -3,6 +3,8 @@ package com.example.backend.request;
 import lombok.Data;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Date;
 @Data
 public class ProductRequest {

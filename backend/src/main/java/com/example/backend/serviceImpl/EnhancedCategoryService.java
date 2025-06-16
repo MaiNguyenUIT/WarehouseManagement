@@ -4,6 +4,7 @@ import com.example.backend.model.Category;
 import com.example.backend.repository.CategoryRepository;
 import com.example.backend.request.CategoryRequest;
 import com.example.backend.service.CategoryService;
+import com.example.backend.utils.factories.CategoryFactoryManage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,14 +28,15 @@ public class EnhancedCategoryService implements CategoryService {
         if (category.getCategoryName() == null || category.getCategoryName().trim().isEmpty()) {
             throw new Exception("Category name cannot be empty");
         }
-        Optional<Category> existingCategory = categoryRepository.findBycategoryName(category.getCategoryName());
+        Category existingCategory = categoryRepository.findBycategoryName(category.getCategoryName()).orElse(null);
         if (existingCategory != null) {
             throw new Exception("Category is already exist");
         }
-        Category newCategory = new Category();
+        Category newCategory = (Category)CategoryFactoryManage.getInstance().createEntity();
         newCategory.setCategoryName(category.getCategoryName().trim());
         newCategory.setDescription(category.getDescription());
         System.out.println("Creating new category: " + category.getCategoryName());
+        
         return categoryRepository.save(newCategory);
     }
 
