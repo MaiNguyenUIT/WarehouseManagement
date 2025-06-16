@@ -2,9 +2,9 @@ package com.example.backend.serviceImpl;
 
 import com.example.backend.model.Notification;
 import com.example.backend.model.Product;
-import com.example.backend.pattern.ObserverPattern.EmailNotifier;
-import com.example.backend.pattern.ObserverPattern.LogNotifier;
-import com.example.backend.pattern.ObserverPattern.ProductExpiryNotifier;
+import com.example.backend.pattern.ObserverPattern.EmailNotifierSubcriber;
+import com.example.backend.pattern.ObserverPattern.LogNotifierSubcriber;
+import com.example.backend.pattern.ObserverPattern.ProductExpiryPublisher;
 import com.example.backend.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -30,9 +30,9 @@ public class NotificationService implements com.example.backend.service.Notifica
         List<Product> products = productRepository.findProductsExpiringWithin(now, fiveDaysLater);
 
         //observer pattern
-        ProductExpiryNotifier notifier = new ProductExpiryNotifier();
-        notifier.addObserver(new EmailNotifier());
-        notifier.addObserver(new LogNotifier());
+        ProductExpiryPublisher notifier = new ProductExpiryPublisher();
+        notifier.addObserver(new EmailNotifierSubcriber());
+        notifier.addObserver(new LogNotifierSubcriber());
 
         for(Product i : products){
             Notification notification = new Notification();

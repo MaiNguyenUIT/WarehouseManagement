@@ -5,19 +5,19 @@ import com.example.backend.model.Product;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ProductExpiryNotifier {
-    private final List<ProductExpiryObserver> observers = new ArrayList<>();
+public class ProductExpiryPublisher {
+    private final List<ProductExpirySubcriber> observers = new ArrayList<>();
 
-    public void addObserver(ProductExpiryObserver observer) {
+    public void addObserver(ProductExpirySubcriber observer) {
         observers.add(observer);
     }
 
-    public void removeObserver(ProductExpiryObserver observer) {
+    public void removeObserver(ProductExpirySubcriber observer) {
         observers.remove(observer);
     }
 
     public void notifyObservers(List<Product> product) {
-        for (ProductExpiryObserver observer : observers) {
+        for (ProductExpirySubcriber observer : observers) {
             observer.notify(product);
         }
     }
