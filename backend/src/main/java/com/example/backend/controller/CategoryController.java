@@ -2,7 +2,7 @@ package com.example.backend.controller;
 
 import com.example.backend.model.Category;
 import com.example.backend.model.User;
-import com.example.backend.pattern.BuilderPattern.ApiResponse;
+import com.example.backend.pattern.BuilderPattern.CategoryApiResponse;
 import com.example.backend.request.CategoryRequest;
 import com.example.backend.service.CategoryService;
 import com.example.backend.service.UserService;
@@ -23,37 +23,34 @@ public class CategoryController {
     private UserService userService;
 
     @GetMapping("")
-    public ResponseEntity<ApiResponse<List<Category>>> getAllCategory(@RequestHeader("Authorization") String jwt)
+    public ResponseEntity<CategoryApiResponse> getAllCategory(@RequestHeader("Authorization") String jwt)
             throws Exception {
-        User user = userService.findUserByJwtToken(jwt);
-        ApiResponse<List<Category>> response = new ApiResponse.Builder<List<Category>>()
-                .data(categoryService.getAllCategory())
-                .status(200)
-                .message("Get all category successfully")
+        CategoryApiResponse response = new CategoryApiResponse.Builder()
+                .setData(categoryService.getAllCategory())
+                .setCode(200)
+                .setMessage("Get all category successfully")
                 .build();
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/getCategoryName")
-    public ResponseEntity<ApiResponse<List<String>>> getAllCategoryName(@RequestHeader("Authorization") String jwt)
+    public ResponseEntity<CategoryApiResponse> getAllCategoryName(@RequestHeader("Authorization") String jwt)
             throws Exception {
-        User user = userService.findUserByJwtToken(jwt);
-        ApiResponse<List<String>> response = new ApiResponse.Builder<List<String>>()
-                .data(categoryService.getCategoryName())
-                .status(200)
-                .message("Get all category name successfully")
+        CategoryApiResponse response = new CategoryApiResponse.Builder()
+                .setData(categoryService.getCategoryName())
+                .setCode(200)
+                .setMessage("Get all category name successfully")
                 .build();
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Optional<Category>>> getCategoryById(@RequestHeader("Authorization") String jwt,
+    public ResponseEntity<CategoryApiResponse> getCategoryById(@RequestHeader("Authorization") String jwt,
             @PathVariable String id) throws Exception {
-        User user = userService.findUserByJwtToken(jwt);
-        ApiResponse<Optional<Category>> response = new ApiResponse.Builder<Optional<Category>>()
-                .data(categoryService.getCategoryById(id))
-                .status(200)
-                .message("Get all category successfully")
+        CategoryApiResponse response = new CategoryApiResponse.Builder()
+                .setData(categoryService.getCategoryById(id))
+                .setCode(200)
+                .setMessage("Get all category successfully")
                 .build();
         return ResponseEntity.ok(response);
     }

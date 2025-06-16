@@ -4,12 +4,11 @@ import com.example.backend.model.Product;
 
 import java.util.List;
 
-public class LogNotifier implements ProductExpiryObserver {
-
+public class EmailNotifierSubcriber implements ProductExpirySubcriber {
     @Override
     public void notify(List<Product> products) {
         for(Product product : products){
-            System.out.println("📧 Log: Sản phẩm " + product.getProductName() + " sắp hết hạn.");
+            System.out.println("📧 Email: Sản phẩm " + product.getProductName() + " sắp hết hạn.");
         }
     }
 }
