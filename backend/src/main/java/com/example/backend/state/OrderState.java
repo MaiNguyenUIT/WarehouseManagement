@@ -20,7 +20,6 @@ public interface OrderState {
 
   ORDER_STATE getStateEnum();
 
-  // Helper method để xử lý lỗi cho các hành động không hợp lệ
   default void throwInvalidOperation() throws Exception {
     throw new Exception("Operation not allowed in state: " + getStateEnum());
   }

@@ -33,7 +33,7 @@ public class OrderItemService implements com.example.backend.service.OrderItemSe
     @Override
     @Transactional
     public OrderItem updateOrderItem(OrderItem orderItem, String id) throws Exception {
-        orderItem.setOrderItem_id(id); // Đảm bảo ID được set
+        orderItem.setOrderItem_id(id);
         return orderItemProcessor.processOrderItem(orderItem, true);
     }
 

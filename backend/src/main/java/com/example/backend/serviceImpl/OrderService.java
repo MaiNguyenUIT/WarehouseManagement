@@ -62,7 +62,6 @@ public class OrderService implements com.example.backend.service.OrderService {
         newOrder.setOrderCode(orderRequest.getOrderCode());
         newOrder.setOrderStatus(ORDER_STATUS.OUT_EXPORT);
 
-        // Thiết lập trạng thái ban đầu bằng Factory và setter
         newOrder.setCurrentState(OrderStateFactory.getState(ORDER_STATE.PENDING));
 
         int totalPrice = 0;
@@ -71,10 +70,9 @@ public class OrderService implements com.example.backend.service.OrderService {
             if (orderItem == null) {
                 throw new Exception("OrderItem with code " + orderItemCode + " not found.");
             }
-            // Chỉ tính tổng giá, việc cập nhật state của OrderItem sẽ do State quản lý khi
-            // cần
+
             totalPrice += orderItem.getTotalPrice();
-            // Cập nhật trạng thái OrderItem thành IN_ORDER khi tạo đơn hàng
+
             if (orderItem.getOrderItemState() != ORDER_ITEM_STATE.IN_ORDER) {
                 orderItem.setOrderItemState(ORDER_ITEM_STATE.IN_ORDER);
                 orderItemRepository.save(orderItem);
@@ -89,11 +87,9 @@ public class OrderService implements com.example.backend.service.OrderService {
     @Transactional
     public Order updateOrder(OrderItemRequest orderRequest, String orderId) throws Exception {
         Order existingOrder = orderRepository.findById(orderId)
-                .map(this::initializeOrderState) // Khởi tạo state sau khi lấy
+                .map(this::initializeOrderState)
                 .orElseThrow(() -> new Exception("Order not found with id: " + orderId));
 
-        // Ủy thác việc cập nhật cho State hiện tại của Order
-        // Truyền orderItemRepository vào vì PendingState cần nó
         existingOrder.updateOrderDetails(orderRequest, orderItemRepository);
 
         return orderRepository.save(existingOrder);
@@ -106,7 +102,6 @@ public class OrderService implements com.example.backend.service.OrderService {
 
     @Override
     public Optional<Order> getOrderById(String id) {
-        // Khởi tạo state khi tìm thấy
         return orderRepository.findById(id).map(this::initializeOrderState);
     }
 
@@ -114,24 +109,18 @@ public class OrderService implements com.example.backend.service.OrderService {
     @Transactional
     public void deleteOrder(String id) throws Exception {
         Order order = orderRepository.findById(id)
-                .map(this::initializeOrderState) // Khởi tạo state
+                .map(this::initializeOrderState)
                 .orElseThrow(() -> new Exception("Order not found with id: " + id));
 
-        // Kiểm tra trạng thái xuất kho (ORDER_STATUS) - Logic này có thể giữ lại hoặc
-        // tích hợp vào State nếu cần
         if (order.getOrderStatus() == ORDER_STATUS.IN_EXPORT) {
             throw new Exception("Order is already in export so that cannot delete");
         }
 
-        // Kiểm tra trạng thái đơn hàng (ORDER_STATE) - Có thể thêm vào đây nếu muốn
-        // Ví dụ: không cho xóa đơn hàng đã giao hoặc đang giao
         ORDER_STATE currentOrderState = order.getOrderState();
         if (currentOrderState == ORDER_STATE.DELIVERED || currentOrderState == ORDER_STATE.ON_GOING) {
             throw new Exception("Cannot delete an order that is " + currentOrderState);
         }
 
-        // Nếu đơn hàng chưa bị hủy, cần cập nhật lại trạng thái OrderItem thành
-        // OUT_ORDER
         if (currentOrderState != ORDER_STATE.CANCELLED) {
             for (String i : order.getOrderItem_code()) {
                 OrderItem item = orderItemRepository.findByorderItemCode(i);
@@ -154,30 +143,25 @@ public class OrderService implements com.example.backend.service.OrderService {
     @Transactional
     public Order updateOrderState(OrderStateRequest stateRequest, String orderId) throws Exception {
         Order existingOrder = orderRepository.findById(orderId)
-                .map(this::initializeOrderState) // Khởi tạo state
+                .map(this::initializeOrderState)
                 .orElseThrow(() -> new Exception("Order not found with id: " + orderId));
 
-        ORDER_STATE targetOrderState = stateRequest.getState(); // Lấy state enum từ request
+        ORDER_STATE targetOrderState = stateRequest.getState();
 
-        // Gọi phương thức chuyển đổi tương ứng trên đối tượng Order
         switch (targetOrderState) {
             case CONFIRMED:
                 existingOrder.confirmOrder();
                 break;
             case ON_GOING:
-                // Thường trạng thái này được kích hoạt bởi hành động 'ship'
                 existingOrder.shipOrder();
                 break;
             case DELIVERED:
-                // Thường trạng thái này được kích hoạt bởi hành động 'deliver'
                 existingOrder.deliverOrder();
                 break;
             case CANCELLED:
-                // Truyền repo vào vì CancelledState cần
                 existingOrder.cancelOrder(orderItemRepository);
                 break;
             case PENDING:
-                // Thường không có hành động trực tiếp để quay về PENDING
                 throw new Exception("Cannot manually revert state to PENDING.");
             default:
                 throw new Exception("Unsupported target state: " + targetOrderState);
@@ -217,20 +201,17 @@ public class OrderService implements com.example.backend.service.OrderService {
 
     @Override
     public Order getOrderByOrderCode(String orderCode) {
-        // Khởi tạo state khi tìm thấy
         return initializeOrderState(orderRepository.findByOrderCode(orderCode));
     }
 
     @Override
     @Transactional
     public Order updateOrderStatus(OrderStatusRequest status, String orderId) throws Exception {
-        // Logic cập nhật orderStatus (trạng thái xuất kho) có thể độc lập với
-        // orderState
         Order existingOrder = orderRepository.findById(orderId)
                 .orElseThrow(() -> new Exception("Order not found with id: " + orderId));
 
         existingOrder.setOrderStatus(status.getOrderStatus());
-        existingOrder.setUpdate_at(LocalDate.now()); // Cập nhật thời gian
+        existingOrder.setUpdate_at(LocalDate.now());
         return orderRepository.save(existingOrder);
     }
 

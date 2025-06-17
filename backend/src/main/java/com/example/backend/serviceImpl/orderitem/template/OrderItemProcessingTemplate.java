@@ -5,7 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 public abstract class OrderItemProcessingTemplate {
 
-  // Template method - định nghĩa luồng xử lý chung
+  // Template method
   @Transactional
   public final OrderItem processOrderItem(OrderItem orderItemInput, boolean isUpdate) throws Exception {
     validateInput(orderItemInput, isUpdate);
@@ -32,7 +32,7 @@ public abstract class OrderItemProcessingTemplate {
     performDeletion(orderItemToDelete);
   }
 
-  // Abstract methods - phải được implement bởi subclass
+  // Abstract methods
   protected abstract void validateInput(OrderItem orderItemInput, boolean isUpdate) throws Exception;
 
   protected abstract OrderItem fetchExistingOrderItem(OrderItem orderItemInput) throws Exception;

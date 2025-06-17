@@ -33,7 +33,7 @@ public class PendingState implements OrderState {
   public void cancelOrder(Order order, OrderItemRepository orderItemRepository) throws Exception {
     for (String orderItemCode : order.getOrderItem_code()) {
       OrderItem orderItem = orderItemRepository.findByorderItemCode(orderItemCode);
-      if (orderItem != null) { // Kiểm tra null phòng trường hợp dữ liệu không nhất quán
+      if (orderItem != null) {
         orderItem.setOrderItemState(ORDER_ITEM_STATE.OUT_ORDER);
         orderItemRepository.save(orderItem);
       }
