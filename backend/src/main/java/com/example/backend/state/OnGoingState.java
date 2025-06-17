@@ -17,7 +17,6 @@ public class OnGoingState implements OrderState {
   @Override
   public void shipOrder(Order order) throws Exception {
     System.out.println("Order " + order.getOrderCode() + " is already on the way.");
-    // throw new Exception("Order is already on the way.");
   }
 
   @Override
@@ -30,7 +29,6 @@ public class OnGoingState implements OrderState {
 
   @Override
   public void cancelOrder(Order order, OrderItemRepository orderItemRepository) throws Exception {
-    // Thường không cho phép hủy khi đang giao, hoặc có chính sách riêng
     throw new Exception("Cannot cancel order while it's on the way.");
   }
 
