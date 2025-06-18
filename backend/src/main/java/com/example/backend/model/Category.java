@@ -13,4 +13,15 @@ public class Category extends BaseModel {
     private String id;
     private String categoryName;
     private String description;
+
+    @Override
+    public void initializeDefaultsAndValidate() {
+        if (this.categoryName != null) {
+            this.categoryName = this.categoryName.trim();
+        }
+        if (this.description == null) {
+            this.description = "";
+        }
+        System.out.println("DEBUG: Category '" + this.categoryName + "' initialized and validated.");
+    }
 }

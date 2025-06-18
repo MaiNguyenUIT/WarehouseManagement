@@ -1,10 +1,11 @@
 package com.example.backend.serviceImpl;
 
+import com.example.backend.ENUM.ENTITY_TYPE;
 import com.example.backend.model.Category;
 import com.example.backend.repository.CategoryRepository;
 import com.example.backend.request.CategoryRequest;
 import com.example.backend.service.CategoryService;
-import com.example.backend.utils.factories.CategoryFactoryManage;
+import com.example.backend.utils.factories.GlobalEntityFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,9 +33,11 @@ public class EnhancedCategoryService implements CategoryService {
         if (existingCategory != null) {
             throw new Exception("Category is already exist");
         }
-        Category newCategory = (Category)CategoryFactoryManage.getInstance().createEntity();
-        newCategory.setCategoryName(category.getCategoryName().trim());
-        newCategory.setDescription(category.getDescription());
+        Category newCategory = (Category) GlobalEntityFactory.getInstance().createEntityFromRequest(
+                                                category,
+                                                ENTITY_TYPE.CATEGORY 
+                                            );
+
         System.out.println("Creating new category: " + category.getCategoryName());
         
         return categoryRepository.save(newCategory);
