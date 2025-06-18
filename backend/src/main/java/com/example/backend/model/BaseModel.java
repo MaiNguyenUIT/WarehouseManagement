@@ -5,8 +5,9 @@ import java.time.LocalDateTime;
 import lombok.Data;
 
 @Data
-public class BaseModel {
+public abstract class BaseModel {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    public abstract void initializeDefaultsAndValidate();
 }

@@ -1,5 +1,6 @@
 package com.example.backend.serviceImpl;
 
+import com.example.backend.ENUM.ENTITY_TYPE;
 import com.example.backend.model.Category;
 import com.example.backend.model.Product;
 import com.example.backend.model.Supplier;
@@ -8,7 +9,7 @@ import com.example.backend.repository.CategoryRepository;
 import com.example.backend.repository.ProductRepository;
 import com.example.backend.repository.SupplierRepository;
 import com.example.backend.request.ProductRequest;
-import com.example.backend.utils.factories.ProductFactoryManage;
+import com.example.backend.utils.factories.GlobalEntityFactory;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -95,7 +96,10 @@ public class ProductService implements com.example.backend.service.ProductServic
     @Override
     public Product addProduct(ProductRequest product) {
 
-        Product newProduct = ProductFactoryManage.getInstance().createProductFromRequest(product);
+        Product newProduct = (Product) GlobalEntityFactory.getInstance().createEntityFromRequest(
+                                                product,
+                                                ENTITY_TYPE.PRODUCT
+                                            );
         // new Product();
         // newProduct.setProductName(product.getProductName());
         // newProduct.setProduction_date(product.getProduction_date());

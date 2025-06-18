@@ -31,83 +31,97 @@ public class Product extends BaseModel {
     private int price;
     private PRODUCT_STATUS productStatus = PRODUCT_STATUS.IN_STOCK;
 
+    @Override
+    public void initializeDefaultsAndValidate() {
+        if (this.inventory_quantity < 0) {
+            this.inventory_quantity = 0;
+            System.out.println("WARNING: Product inventory quantity was negative, set to 0.");
+        }
+        if (this.productStatus == null) {
+            this.productStatus = PRODUCT_STATUS.IN_STOCK;
+        }
+        if (this.price < 0) {
+            this.price = 0;
+            System.out.println("WARNING: Product price was negative, set to 0.");
+        }
+        System.out.println("DEBUG: Product '" + this.productName + "' initialized and validated.");
+    }
+
     public static class ProductBuilder {
-        private String productName;
-        private Date production_date;
-        private String unit;
-        private String supplierId;
-        private String categoryId;
-        private Date expiration_date;
-        private String image;
-        private String description;
-        private Integer inventory_quantity;
-        private Integer price;
+        private Product product = new Product();
 
         public ProductBuilder withProductName(String productName) {
-            this.productName = productName;
+            this.product.setProductName(productName);
             return this;
         }
 
         public ProductBuilder withProductionDate(Date production_date) {
-            this.production_date = production_date;
+            this.product.setProduction_date(production_date);
             return this;
         }
 
         public ProductBuilder withUnit(String unit) {
-            this.unit = unit;
+            this.product.setUnit(unit);
             return this;
         }
 
         public ProductBuilder withSupplierId(String supplierId) {
-            this.supplierId = supplierId;
+            this.product.setSupplierId(supplierId);
             return this;
         }
 
         public ProductBuilder withCategoryId(String categoryId) {
-            this.categoryId = categoryId;
+            this.product.setCategoryId(categoryId);
             return this;
         }
 
         public ProductBuilder withExpirationDate(Date expiration_date) {
-            this.expiration_date = expiration_date;
+            this.product.setExpiration_date(expiration_date);
             return this;
         }
 
         public ProductBuilder withImage(String image) {
-            this.image = image;
+            this.product.setImage(image);
             return this;
         }
 
         public ProductBuilder withDescription(String description) {
-            this.description = description;
+            this.product.setDescription(description);
             return this;
         }
 
         public ProductBuilder withInventoryQuantity(Integer inventory_quantity) {
-            this.inventory_quantity = inventory_quantity;
+            this.product.setInventory_quantity(inventory_quantity != null ? inventory_quantity : 0);
             return this;
         }
 
         public ProductBuilder withPrice(Integer price) {
-            this.price = price;
+            this.product.setPrice(price != null ? price : 0);
+            return this;
+        }
+
+        public ProductBuilder withCreatedAt(LocalDateTime createdAt) {
+            this.product.setCreatedAt(createdAt);
+            return this;
+        }
+
+        public ProductBuilder withUpdatedAt(LocalDateTime updatedAt) {
+            this.product.setUpdatedAt(updatedAt);
             return this;
         }
 
         public Product build() {
-            Product product = new Product();
-            product.setProductName(this.productName);
-            product.setProduction_date(this.production_date);
-            product.setUnit(this.unit);
-            product.setSupplierId(this.supplierId);
-            product.setCategoryId(this.categoryId);
-            product.setExpiration_date(this.expiration_date);
-            product.setImage(this.image);
-            product.setDescription(this.description);
-            product.setInventory_quantity(this.inventory_quantity);
-            product.setPrice(this.price != null ? this.price : 0);
-            product.setCreatedAt(LocalDateTime.now());
-            product.setUpdatedAt(LocalDateTime.now());
-            return product;
+
+            if (this.product.getCreatedAt() == null) {
+                this.product.setCreatedAt(LocalDateTime.now());
+            }
+            if (this.product.getUpdatedAt() == null) {
+                this.product.setUpdatedAt(LocalDateTime.now());
+            }
+
+            this.product.initializeDefaultsAndValidate();
+
+            return this.product;
         }
     }
 }
