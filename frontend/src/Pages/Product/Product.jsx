@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import './Product.css'
-import { Alert, alpha, Box, Button, Container, Fade, FormControl, InputAdornment, InputBase, InputLabel, MenuItem, Modal, Select, Snackbar, Stack, styled, TextField, Typography } from "@mui/material";
+import { Alert, alpha, Box, Button, Container, Fade, FormControl, InputAdornment, InputBase, InputLabel, MenuItem, Modal, Select, Snackbar, Stack, styled, TextField, Tooltip, Typography } from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
+import UndoIcon from '@mui/icons-material/Undo';
+import RedoIcon from '@mui/icons-material/Redo';
 import MyTable from "../../Component/MyTable";
 import ApiService from "../../Service/ApiService";
-import ProductService from "../../DesignPatterns/Adapter/services/ProductService";
+import SimpleProductAdapter from "../../DesignPatterns/Adapter/adapters/SimpleProductAdapter";
 import dayjs from 'dayjs';
 import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -14,6 +16,10 @@ import { useNavigate } from "react-router-dom";
 import FilterStrategyContext from "../../DesignPatterns/Strategy/FilterStrategyContext";
 import CategoryFilterStrategy from "../../DesignPatterns/Strategy/CategoryFilterStrategy";
 import SupplierFilterStrategy from "../../DesignPatterns/Strategy/SupplierFilterStrategy";
+import PriceRangeFilterStrategy from "../../DesignPatterns/Strategy/PriceRangeFilterStrategy";
+import StatusFilterStrategy from "../../DesignPatterns/Strategy/StatusFilterStrategy";
+import ProductInvoker from "../../DesignPatterns/Command/ProductInvoker";
+import ProductReceiver from "../../DesignPatterns/Command/ProductReceiver";
 import AddProductCommand from "../../DesignPatterns/Command/AddProductCommand";
 import UpdateProductCommand from "../../DesignPatterns/Command/UpdateProductCommand";
 import DeleteProductCommand from "../../DesignPatterns/Command/DeleteProductCommand";
@@ -90,17 +96,17 @@ const Product = () => {
     const [open, setOpen] = useState(false);
     const [openEdit, setOpenEdit] = useState(false);
     const [rows, setRows] = useState([]);
-    const [selectedRow, setSelectedRow] = useState(null);
+    const [selectedRow, setSelectedRow] = useState(null);    const invoker = useMemo(() => new ProductInvoker(), []); // Tạo instance duy nhất
+    const receiver = useMemo(() => new ProductReceiver(), []);
+    const productService = useMemo(() => new SimpleProductAdapter(), []); // Tạo Adapter instance
     const nav = useNavigate();
 
     const [openSnackbar, setOpenSnackbar] = useState(false);  // Control Snackbar visibility
     const [snackbarMessage, setSnackbarMessage] = useState(""); // Snackbar message content
     const [snackbarSeverity, setSnackbarSeverity] = useState("success"); // Severity type (success, error, etc.)
-    const [filterStrategy, setFilterStrategy] = useState(null);
-
-    useEffect(() => {
+    const [filterStrategy, setFilterStrategy] = useState(null);    useEffect(() => {
         fetchRows();
-    }, []);
+    }, [fetchRows]);
 
     const handleFilterChange = async (e) => {
         const value = e.target.value;
@@ -108,13 +114,15 @@ const Product = () => {
         setSubFilter("");
         setSubFilterVisible(value !== '');
         setListCategory(await ApiService.getAllCategories());
-        setListSupplier(await ApiService.getAllSupplier());
-
-        // Set the appropriate filter strategy
+        setListSupplier(await ApiService.getAllSupplier());        // Set the appropriate filter strategy
         if (value === "Loại") {
             setFilterStrategy(new CategoryFilterStrategy());
         } else if (value === "Nhà cung cấp") {
             setFilterStrategy(new SupplierFilterStrategy());
+        } else if (value === "Khoảng giá") {
+            setFilterStrategy(new PriceRangeFilterStrategy());
+        } else if (value === "Trạng thái") {
+            setFilterStrategy(new StatusFilterStrategy());
         } else {
             setFilterStrategy(null);
         }
@@ -124,38 +132,86 @@ const Product = () => {
         const value = target.value;
         setSubFilter(value);
     }
-    
-    const handleChange = ({target}) => {
+      const handleChange = ({target}) => {
         refInput.current[target.name] = target.value;
         console.log(refInput);
-    }
+    };
 
     const handleChangeProductionDate = (value) => {
         refInput.current['production_date'] = `${value.$y}-${(value.$M + 1).toString().padStart(2, '0')}-${value.$D.toString().padStart(2, '0')}`;
         console.log(refInput);
-    }
+    };
 
     const handleChangeExpirationDate = (value) => {
         refInput.current['expiration_date'] = `${value.$y}-${(value.$M + 1).toString().padStart(2, '0')}-${value.$D.toString().padStart(2, '0')}`;
         console.log(refInput);
-    }
+    };
 
     const handleAddProduct = async () => {
-        const command = new AddProductCommand(refInput.current, images, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar, setOpen);
-        await command.execute();
-        fetchRows();
+        console.log('🔵 COMMAND PATTERN: Executing AddProductCommand');
+        console.log('📝 Input data:', refInput.current);
+        
+        const command = new AddProductCommand(
+            receiver, 
+            refInput.current, 
+            images, 
+            setSnackbarMessage, 
+            setSnackbarSeverity, 
+            setOpenSnackbar, 
+            setOpen
+        );
+        
+        try {
+            await invoker.setCommand(command).executeCommand();
+            await fetchRows();
+            console.log(`✅ COMMAND PATTERN: Add completed. Can undo: ${invoker.canUndo()}, History size: ${invoker.getHistorySize()}`);
+        } catch (error) {
+            console.error('❌ COMMAND PATTERN: Add failed', error);
+        }
     };
 
     const handleUpdateProduct = async () => {
-        const command = new UpdateProductCommand(selectedRow.id, refInput.current, images, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar, setOpenEdit);
-        await command.execute();
-        fetchRows();
+        console.log('🔵 COMMAND PATTERN: Executing UpdateProductCommand');
+        console.log('📝 Product ID:', selectedRow?.id, 'Updated data:', refInput.current);
+        
+        const command = new UpdateProductCommand(
+            receiver, 
+            selectedRow.id, 
+            refInput.current, 
+            images, 
+            setSnackbarMessage, 
+            setSnackbarSeverity, 
+            setOpenSnackbar, 
+            setOpenEdit
+        );
+        
+        try {
+            await invoker.setCommand(command).executeCommand();
+            await fetchRows();
+            console.log(`✅ COMMAND PATTERN: Update completed. Can undo: ${invoker.canUndo()}, History size: ${invoker.getHistorySize()}`);
+        } catch (error) {
+            console.error('❌ COMMAND PATTERN: Update failed', error);
+        }
     };
 
     const handleDeleteButton = async (id) => {
-        const command = new DeleteProductCommand(id, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar);
-        await command.execute();
-        fetchRows();
+        console.log('🔵 COMMAND PATTERN: Executing DeleteProductCommand for ID:', id);
+        
+        const command = new DeleteProductCommand(
+            receiver, 
+            id, 
+            setSnackbarMessage, 
+            setSnackbarSeverity, 
+            setOpenSnackbar
+        );
+        
+        try {
+            await invoker.setCommand(command).executeCommand();
+            await fetchRows();
+            console.log(`✅ COMMAND PATTERN: Delete completed. Can undo: ${invoker.canUndo()}, History size: ${invoker.getHistorySize()}`);
+        } catch (error) {
+            console.error('❌ COMMAND PATTERN: Delete failed', error);
+        }
     };
 
     const handleEditButton = async (row) => {
@@ -181,11 +237,9 @@ const Product = () => {
         };
     
         updateStates();
-    };
-
-    const handleClickRow = (row) => {
+    };    const handleClickRow = (row) => {
         nav('/app/product/detail/' + row.id);
-    }
+    };
 
     const handleOpen = async () => {
         setOpen(true);
@@ -193,35 +247,88 @@ const Product = () => {
         refInput.current = {};
         setListCategory(await ApiService.getAllCategories());
         setListSupplier(await ApiService.getAllSupplier());
-    }
+    };
+
     const handleClose = () => {
         setOpen(false);
         fetchRows();
-    }
-
-    const fetchRows = async () => {
+    };    const fetchRows = useCallback(async () => {
+        console.log('🟠 ADAPTER PATTERN: Using SimpleProductAdapter to fetch products');
         try {
-            const response = await ProductService.getAllProducts();
+            const response = await productService.getAllProducts();
+            console.log(`✅ ADAPTER PATTERN: Successfully loaded ${response.length} products via SimpleProductAdapter`);
             setRows(response);
         } catch (error) {
-            console.error("Lỗi khi tải thông tin các Product", error.message);
+            console.error("❌ ADAPTER PATTERN: Failed to load products via SimpleProductAdapter", error.message);
+            setSnackbarMessage("Lỗi khi tải danh sách sản phẩm: " + error.message);
+            setSnackbarSeverity("error");
+            setOpenSnackbar(true);
         }
-    };
+    }, [productService, setSnackbarMessage, setSnackbarSeverity, setOpenSnackbar]);
 
     //image upload
     const [images, setImages] = useState(null);
     const [imageUrls, setImageUrls] = useState(null);
-    const [previewUrl, setPreviewUrl] = useState(null);
-
-    const handleImageChange = (e) => {
+    const [previewUrl, setPreviewUrl] = useState(null);    const handleImageChange = (e) => {
         setImages(e.target.files[0]);
         setPreviewUrl(URL.createObjectURL(e.target.files[0]));
     };
 
-    const filteredRows = new FilterStrategyContext(filterStrategy).filter(rows, {
-        search,
-        subfilter,
-    });
+    // Enhanced Strategy Pattern usage with proper logging
+    const filteredRows = useMemo(() => {
+        if (!filterStrategy) {
+            // No strategy selected, apply basic search only
+            console.log('🟢 STRATEGY PATTERN: No strategy, applying basic search only');
+            return rows.filter(row => 
+                row.productName.toLowerCase().includes(search.toLowerCase())
+            );
+        }
+
+        console.log(`🟢 STRATEGY PATTERN: Applying ${filterStrategy.constructor.name} with search="${search}", subfilter="${subfilter}"`);
+        const context = new FilterStrategyContext(filterStrategy);
+        const result = context.filter(rows, { search, subfilter });
+        console.log(`✅ STRATEGY PATTERN: Filtered ${rows.length} products to ${result.length} results`);
+        return result;
+    }, [rows, filterStrategy, search, subfilter]);
+
+    // Enhanced Command Pattern handlers with logging and error handling
+    const handleUndo = async () => {
+        if (invoker.canUndo()) {
+            console.log('🔵 COMMAND PATTERN: Executing undo');
+            try {
+                await invoker.undo();
+                await fetchRows();
+                setSnackbarMessage("Đã hoàn tác thao tác!");
+                setSnackbarSeverity("info");
+                setOpenSnackbar(true);
+                console.log(`✅ COMMAND PATTERN: Undo completed. Can redo: ${invoker.canRedo()}`);
+            } catch (error) {
+                console.error('❌ COMMAND PATTERN: Undo failed', error);
+                setSnackbarMessage("Lỗi khi hoàn tác: " + error.message);
+                setSnackbarSeverity("error");
+                setOpenSnackbar(true);
+            }
+        }
+    };
+
+    const handleRedo = async () => {
+        if (invoker.canRedo()) {
+            console.log('🔵 COMMAND PATTERN: Executing redo');
+            try {
+                await invoker.redo();
+                await fetchRows();
+                setSnackbarMessage("Đã làm lại thao tác!");
+                setSnackbarSeverity("info");
+                setOpenSnackbar(true);
+                console.log(`✅ COMMAND PATTERN: Redo completed. Can undo: ${invoker.canUndo()}`);
+            } catch (error) {
+                console.error('❌ COMMAND PATTERN: Redo failed', error);
+                setSnackbarMessage("Lỗi khi làm lại: " + error.message);
+                setSnackbarSeverity("error");
+                setOpenSnackbar(true);
+            }
+        }
+    };
 
     return(
         <Container maxWidth="xl" className="Product" sx={{ width: "100%", height: "auto", display: "flex", flexDirection: "column"}}>
@@ -270,12 +377,13 @@ const Product = () => {
                                     value={filter}
                                     label="Lọc theo"
                                     onChange={handleFilterChange}
-                                >
-                                <MenuItem value="">
+                                >                                <MenuItem value="">
                                     <em>Không chọn</em>
                                 </MenuItem>
                                 <MenuItem value={"Loại"}>Loại</MenuItem>
                                 <MenuItem value={"Nhà cung cấp"}>Nhà cung cấp</MenuItem>
+                                <MenuItem value={"Khoảng giá"}>Khoảng giá</MenuItem>
+                                <MenuItem value={"Trạng thái"}>Trạng thái</MenuItem>
                                 </Select>
                             </FormControl>
 
@@ -293,25 +401,50 @@ const Product = () => {
                                     >
                                         <MenuItem value="">
                                             <em>Không chọn</em>
-                                        </MenuItem>
-                                        {filter === 'Loại' ? (
-                                            listCategory.map((category) => {
-                                                return (
-                                                    <MenuItem value={category.categoryName}>{category.categoryName}</MenuItem>
-                                                );
-                                            })
-                                        ) : (
-                                            listSupplier.map((supplier) => {
-                                                return (
-                                                    <MenuItem value={supplier.nameSupplier}>{supplier.nameSupplier}</MenuItem>
-                                                );
-                                            })
-                                        )}
+                                        </MenuItem>                                        {filter === 'Loại' ? (
+                                            listCategory.map((category) => (
+                                                    <MenuItem key={category.id} value={category.categoryName}>{category.categoryName}</MenuItem>
+                                            ))
+                                        ) : filter === 'Nhà cung cấp' ? (
+                                            listSupplier.map((supplier) => (
+                                                    <MenuItem key={supplier.id} value={supplier.nameSupplier}>{supplier.nameSupplier}</MenuItem>
+                                            ))
+                                        ) : filter === 'Trạng thái' ? (
+                                            productStatus.map((status, index) => (
+                                                    <MenuItem key={index} value={status}>{status}</MenuItem>
+                                            ))
+                                        ) : filter === 'Khoảng giá' ? (
+                                            [
+                                                <MenuItem key="0-50000" value="0-50000">Dưới 50,000 VND</MenuItem>,
+                                                <MenuItem key="50000-100000" value="50000-100000">50,000 - 100,000 VND</MenuItem>,
+                                                <MenuItem key="100000-500000" value="100000-500000">100,000 - 500,000 VND</MenuItem>,
+                                                <MenuItem key="500000-999999999" value="500000-999999999">Trên 500,000 VND</MenuItem>
+                                            ]
+                                        ) : null}
                                     </Select>
                                 </FormControl>
                             )}
-                        </Stack>
-                        <Stack className="btn-add-inventory-bar" direction={"row"} alignItems={"center"}> 
+                        </Stack>                        <Stack className="btn-add-inventory-bar" direction={"row"} alignItems={"center"} spacing={1}> 
+                            <Tooltip title="Hoàn tác">
+                                <Button 
+                                    onClick={handleUndo}
+                                    disabled={!invoker.canUndo()}
+                                    className="btn-setting" 
+                                    sx={{color: "white", height:"55px", backgroundColor: "#6c757d", minWidth: "55px"}} 
+                                    variant="contained">
+                                    <UndoIcon sx={{color: "white"}}/>
+                                </Button>
+                            </Tooltip>
+                            <Tooltip title="Làm lại">
+                                <Button 
+                                    onClick={handleRedo}
+                                    disabled={!invoker.canRedo()}
+                                    className="btn-setting" 
+                                    sx={{color: "white", height:"55px", backgroundColor: "#6c757d", minWidth: "55px"}} 
+                                    variant="contained">
+                                    <RedoIcon sx={{color: "white"}}/>
+                                </Button>
+                            </Tooltip>
                             <Button 
                                 onClick={handleOpen} 
                                 className="btn-setting" 
@@ -340,8 +473,7 @@ const Product = () => {
                                     Thêm sản phẩm
                             </Typography>
                             <Stack sx={{ marginTop:"1rem", marginBottom:"1rem"}} className="body-infor" flexWrap="wrap" direction={"row"} alignItems={"center"}>
-                                <TextField sx={{margin:"1%", width:"100%"}} onChange={handleChange} name="productName" label="Tên sản phẩm" variant="outlined" />
-                                <FormControl sx={{margin:"1%", width:"48%" }}>
+                                <TextField sx={{margin:"1%", width:"100%"}} onChange={handleChange} name="productName" label="Tên sản phẩm" variant="outlined" />                                <FormControl sx={{margin:"1%", width:"48%" }}>
                                     <InputLabel id="demo-simple-select-helper-label">Loại</InputLabel>
                                     <Select
                                     labelId="demo-simple-select-helper-label"
@@ -350,14 +482,11 @@ const Product = () => {
                                     label="Loại"
                                     onChange={handleChange}
                                     >
-                                        {listCategory.map((category) => {
-                                            return (
-                                                <MenuItem value={category.id}>{category.categoryName}</MenuItem>
-                                            );
-                                        })}
+                                        {listCategory.map((category) => (
+                                                <MenuItem key={category.id} value={category.id}>{category.categoryName}</MenuItem>
+                                        ))}
                                     </Select>
-                                </FormControl>
-                                <FormControl sx={{margin:"1%", width:"48%" }}>
+                                </FormControl>                                <FormControl sx={{margin:"1%", width:"48%" }}>
                                     <InputLabel id="demo-simple-select-helper-label">Nhà cung cấp</InputLabel>
                                     <Select
                                     labelId="demo-simple-select-helper-label"
@@ -366,11 +495,9 @@ const Product = () => {
                                     label="Nhà cung cấp"
                                     onChange={handleChange}
                                     >
-                                        {listSupplier.map((supplier) => {
-                                            return (
-                                                <MenuItem value={supplier.id}>{supplier.nameSupplier}</MenuItem>
-                                            );
-                                        })}
+                                        {listSupplier.map((supplier) => (
+                                                <MenuItem key={supplier.id} value={supplier.id}>{supplier.nameSupplier}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 <TextField sx={{margin:"1%", width:"31%" }} onChange={handleChange} name="unit" label="Đơn vị" variant="outlined" />
@@ -470,13 +597,10 @@ const Product = () => {
                                     name="categoryId"
                                     defaultValue={selectedRow?.categoryId ?? ''}
                                     label="Loại"
-                                    onChange={handleChange}
-                                    >
-                                        {listCategory.map((category) => {
-                                            return (
-                                                <MenuItem value={category.id}>{category.categoryName}</MenuItem>
-                                            );
-                                        })}
+                                    onChange={handleChange}                                    >
+                                        {listCategory.map((category) => (
+                                                <MenuItem key={category.id} value={category.id}>{category.categoryName}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 <FormControl sx={{margin:"1%", width:"48%" }}>
@@ -489,11 +613,9 @@ const Product = () => {
                                     label="Nhà cung cấp"
                                     onChange={handleChange}
                                     >
-                                        {listSupplier.map((supplier) => {
-                                            return (
-                                                <MenuItem value={supplier.id}>{supplier.nameSupplier}</MenuItem>
-                                            );
-                                        })}
+                                        {listSupplier.map((supplier) => (
+                                                <MenuItem key={supplier.id} value={supplier.id}>{supplier.nameSupplier}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 <TextField sx={{margin:"1%", width:"31%" }} onChange={handleChange} defaultValue={selectedRow?.unit || ''} name="unit" label="Đơn vị" variant="outlined" />
