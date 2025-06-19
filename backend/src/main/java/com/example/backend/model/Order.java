@@ -6,6 +6,9 @@ import com.example.backend.repository.OrderItemRepository; // Cần import
 import com.example.backend.request.OrderItemRequest; // Cần import
 import com.example.backend.state.OrderState; // Cần import
 import com.example.backend.state.OrderStateFactory; // Cần import
+import com.example.backend.pattern.IteratorPattern.Iterator;
+import com.example.backend.pattern.IteratorPattern.OrderItemCollection;
+import com.example.backend.pattern.IteratorPattern.OrderItemIterator;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient; // Đánh dấu không lưu vào DB
@@ -17,7 +20,7 @@ import java.util.List;
 
 @Data
 @Document("orders")
-public class Order {
+public class Order implements OrderItemCollection {
     @Id
     private String id;
     @Field("user_id")
@@ -30,6 +33,9 @@ public class Order {
 
     @Transient // <-- Không lưu trường này vào DB
     private OrderState currentState; // <-- Trường giữ đối tượng State hiện tại
+
+    @Transient
+    private List<OrderItem> orderItems;
 
     private String delivery_Address;
     private LocalDate created_at;
@@ -54,6 +60,7 @@ public class Order {
         }
         return currentState;
     }
+
 
     // Các phương thức hành động, ủy thác cho state hiện tại
     // Lưu ý: Cần truyền các dependency (như repository) vào nếu State cần dùng
@@ -80,4 +87,9 @@ public class Order {
     }
 
     // Có thể thêm các phương thức khác nếu cần
+
+    @Override
+    public Iterator<OrderItem> createIterator() {
+        return new OrderItemIterator(orderItems);
+    }
 }

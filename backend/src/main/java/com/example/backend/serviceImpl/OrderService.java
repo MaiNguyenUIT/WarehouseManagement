@@ -14,6 +14,7 @@ import com.example.backend.request.OrderStateRequest;
 import com.example.backend.request.OrderStatusRequest;
 import com.example.backend.service.UserService;
 import com.example.backend.state.OrderStateFactory;
+import com.example.backend.pattern.IteratorPattern.Iterator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,9 @@ public class OrderService implements com.example.backend.service.OrderService {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private OrderItemService orderItemService;
 
     private Order initializeOrderState(Order order) {
         if (order != null) {
@@ -234,5 +238,21 @@ public class OrderService implements com.example.backend.service.OrderService {
         orderQuantity.setOnGoingQuantity((int) on_going);
 
         return orderQuantity;
+    }
+
+    public void printOrderItemsUsingIterator(String orderId) throws Exception {
+        Order order = getOrderById(orderId).orElseThrow(() -> new Exception("Order not found"));
+        List<OrderItem> items = order.getOrderItem_code().stream()
+                .map(orderItemService::getOrderByOrderItemCode)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+
+        order.setOrderItems(items);
+
+        Iterator<OrderItem> iterator = order.createIterator();
+        while (iterator.hasNext()) {
+            OrderItem item = iterator.next();
+            System.out.println(item.getOrderItemCode());
+        }
     }
 }
