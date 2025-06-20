@@ -1,6 +1,6 @@
 package com.example.backend.pattern.BuilderPattern;
 
-public class BaseApiResponse {
+public class BaseApiResponse implements IApiResponse{
     private int code;
     private String message;
     private Object data;

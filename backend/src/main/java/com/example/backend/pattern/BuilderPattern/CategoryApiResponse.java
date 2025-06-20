@@ -1,6 +1,6 @@
 package com.example.backend.pattern.BuilderPattern;
 
-public class CategoryApiResponse extends BaseApiResponse implements IApiResponse {
+public class CategoryApiResponse extends BaseApiResponse{
     private CategoryApiResponse(int code, String message, Object data) {
         super(code, message, data);
     }
